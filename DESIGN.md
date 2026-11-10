@@ -6,7 +6,7 @@ Sip is a water reminder and drink logger for one Android phone, a Pixel 6a. It r
 
 ## Speed budget
 
-- A cold start paints the real main screen, with today's total, in under 500 ms on the Pixel 6a. That number is the median of 15 cold starts. The app calls `Activity.reportFullyDrawn()` once real data is on screen, and `sketches/measure-startup.sh` reads the "Fully drawn" time from logcat. The first frame of an empty WebView does not count.
+- A cold start paints the real main screen, with today's total, in under 500 ms on the Pixel 6a. That number is the median of 15 cold starts. The app calls `Activity.reportFullyDrawn()` once real data is on screen, and `scripts/measure-startup.sh` reads the "Fully drawn" time from logcat. The first frame of an empty WebView does not count.
 - Logging from a reminder needs no app launch at all. The notification has a "+250 ml Water" button that writes the log from a `BroadcastReceiver`.
 
 ## Stack: Tauri 2 + Solid, by measurement
@@ -26,7 +26,7 @@ The sketch in `sketches/tauri-startup/` makes the real startup path. A Solid mai
 - The WebView limits the number. In one timed run, the first frame was at 97 ms and Chromium started loading at 90 ms. The renderer process was ready at 196 ms, and the content painted at 342 ms. Native Kotlin would skip that WebView work.
 - Not measured yet: the first launch after a reboot, and whether a white frame shows between the first frame and the content.
 
-Rerun with `sketches/measure-startup.sh <package> 15`.
+Rerun with `scripts/measure-startup.sh <package> 15`.
 
 In both stacks Kotlin owns storage, alarms, receivers, and notifications. The alarm receiver and the notification button run with no UI on screen. If storage lived behind the WebView, Android would have to start a WebView just to write one row. So the two stacks differ only in the UI layer, and the Kotlin core below is the same.
 
@@ -46,6 +46,7 @@ data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long
 data class ReminderSettings(
 	val enabled: Boolean,
 	val intervalMinutes: Int,
+	val quietAfterDrinkMinutes: Int,
 	val activeFrom: LocalTime,
 	val activeTo: LocalTime,
 	val pauseWhenGoalMet: Boolean,
@@ -63,9 +64,10 @@ data class Snapshot(
 	val types: List<DrinkType>,
 	val volumes: List<Volume>,
 	val todayLogs: List<DrinkLog>,
+	val dayStart: Instant,
+	val lastDrinkAt: Instant?,
 ) {
 	val todayMl: Int get() = todayLogs.sumOf { it.ml }
-	val lastDrinkAt: Instant? get() = todayLogs.maxOfOrNull { it.at }
 }
 ```
 
@@ -101,7 +103,9 @@ Seed data on first run:
 
 - Drink types: Water, Coffee, Tea, Juice, Milk.
 - Volumes: 150 ml, 250 ml, 330 ml, 500 ml, 750 ml.
-- Goal: 2000 ml. Reminders: every 60 minutes from 08:00 to 22:00, paused once the goal is met.
+- Goal: 2000 ml. Reminders: every 60 minutes from 08:00 to 22:00, quiet for 60 minutes after a drink, paused once the goal is met.
+
+`lastDrinkAt` is the latest log of any day, so a drink at 23:50 still counts for the quiet window after midnight.
 
 ## Reminders that keep firing
 
@@ -123,7 +127,8 @@ These facts come from the official Android docs, read on 2026-11-10.
 2. Exactly one alarm is pending at a time, set with `setExactAndAllowWhileIdle(RTC_WAKEUP, …)` and a fixed `PendingIntent`. Setting it again replaces the old one.
 3. One idempotent function, `Reconciler.reconcile(context)`, owns the alarm. It reads the snapshot and computes the next time with the pure `ReminderPlanner.next(now, zone, snapshot, lastFiredAt)`. It then sets or cancels the alarm and stores `scheduled_for_ms`. Running it twice changes nothing. It runs on app start (after the first frame), after every log change or settings change, when an alarm fires, when the notification button logs a drink, and on `BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, `TIME_SET`, and `TIMEZONE_CHANGED`.
 4. The planner rule:
-	- `anchor` is the later of the last drink and the last reminder, and `candidate` is `anchor + interval`.
+	- `candidate` is the later of `lastReminderAt + interval` and `lastDrinkAt + quietAfterDrink`. A missing time drops out. If both are missing, `candidate` is now plus the interval.
+	- So reminders repeat every `interval` while you don't drink, and a drink holds the next one back until `quietAfterDrink` has passed. With both at 60, a drink restarts the hour.
 	- If `candidate` is in the past, `candidate` becomes now plus one minute. A reminder missed while the phone was off then fires right after boot.
 	- Before `activeFrom`, `candidate` moves to `activeFrom` the same day. After `activeTo`, it moves to `activeFrom` the next day.
 	- If the goal is met for `candidate`'s day and `pauseWhenGoalMet` is on, `candidate` moves to `activeFrom` the next day.
@@ -159,46 +164,107 @@ Today                                   [settings]
 - **Daily goal** in ml, from 500 to 6000.
 - **Volumes**. Each row shows a drag handle, icon, "250 ml", and an optional label. A tap opens an editor for ml, label, and icon. You can drag rows to reorder them, delete a row, or tap **Add volume**.
 - **Drink types**. These use the same list editor, with label and icon.
-- **Reminders**. On or off, an interval of 30, 45, 60, 90, or 120 minutes, active hours, and pause when the goal is met.
+- **Reminders**. On or off, the interval in minutes (15 to 240), quiet after a drink in minutes (0 to 240), the active hours start and end, and pause when the goal is met.
 - **Reliability**. The checklist and the test button from the reminders section.
 
 One list editor component serves both volumes and drink types.
 
 ## Icons
 
-The icons come from Tabler Icons, outline style, which is MIT licensed and drawn with a single stroke color. `icons/icons.txt` lists the 15 to 20 icons the app uses. `icons/fetch-icons.sh` downloads exactly those SVGs from a pinned Tabler release and generates the platform files. For native, those are Android vector drawables plus the `AppIcon` enum. For Tauri, they are a TypeScript map of SVG paths. The script fails if a name doesn't exist upstream. To add an icon, add one line to `icons/icons.txt` and run the script again.
+The icons come from Tabler Icons, outline style, which is MIT licensed and drawn with a single stroke color. `@tabler/icons` is a pinned dev dependency, so it never ships in the APK. `icons/icons.txt` lists the 15 to 20 icons the app uses. `icons/generate.mjs` reads exactly those SVGs and writes two files. `src/icons.gen.ts` maps each key to its SVG inner markup. `IconKeys.kt` in the plugin holds the set of valid keys, so the database boundary can reject unknown ones. The script fails if a name doesn't exist in the package. To add an icon, add one line to `icons/icons.txt` and run `node icons/generate.mjs`.
 
 Candidate names to check against Tabler: `droplet`, `glass`, `glass-full`, `glass-cocktail`, `glass-champagne`, `bottle`, `baby-bottle`, `mug`, `cup`, `coffee`, `teapot`, `beer`, `milk`, `lemon-2`, `apple`, `leaf`, `bucket-droplet`.
 
-## Module map
+## Repository layout
+
+The app grows out of `sketches/tauri-startup/`, which moves to the repository root. The application id is `app.sip`, and the app label is "Sip".
 
 ```
-core (Kotlin, both stacks)
-  domain/Model.kt            types above, no Android imports
-  domain/ReminderPlanner.kt  pure next-reminder function, unit tested
-  data/Db.kt                 SQLiteOpenHelper, schema, seed
-  data/Repo.kt               only writer; snapshot() and a change listener
-  reminders/Reconciler.kt    idempotent alarm owner
-  reminders/AlarmReceiver.kt, DrinkActionReceiver.kt, SystemEventReceiver.kt
-  reminders/Notifications.kt, Reliability.kt
-
-native UI (if Tauri misses the budget)
-  ui/MainActivity.kt, MainScreen.kt, SettingsScreen.kt
-  ui/OrderedListEditor.kt, IconPicker.kt, AppIconRes.kt (generated)
-
-Tauri UI (if Tauri meets the budget)
-  Kotlin plugin SipPlugin exposes snapshot, logDrink, updateLog, deleteLog,
-  saveVolume, deleteVolume, reorderVolumes, the same three for types,
-  saveSettings, reliabilityStatus, and emits "changed"
-  src/ Solid app with the same two screens
+package.json, index.html, vite.config.ts   Solid app build
+src/
+  api.ts                 typed wrapper for every plugin command
+  icons.gen.ts           generated by icons/generate.mjs
+  (screens and components)
+src-tauri/               Rust app shell and the generated Android project
+plugins/tauri-plugin-sip/
+  src/                   Rust command bindings and permissions
+  android/src/main/java/app/sip/core/
+    SipPlugin.kt         commands and the "changed" event
+    domain/Model.kt, domain/ReminderPlanner.kt
+    data/Db.kt, data/Repo.kt, data/Json.kt, data/IconKeys.kt (generated)
+    reminders/           Reconciler, receivers, Notifications, Reliability
+  android/src/main/AndroidManifest.xml
+  android/src/test/      JUnit tests for ReminderPlanner and Repo rules
+icons/icons.txt, icons/generate.mjs
+scripts/build-apk.sh     build, sign, verify
+scripts/measure-startup.sh
 ```
 
-Native dependencies are AndroidX core, activity-compose, Compose Material 3, profileinstaller, and one small drag-to-reorder library. There is no DI framework, no Navigation library, and no Room. Two screens switch on one state value plus `BackHandler`. The release build uses R8 and a baseline profile.
+There are no Android dependencies beyond what Tauri brings, plus `org.json` and `android.database.sqlite` from the platform. The Settings screen is code-split with Solid's `lazy()`, so its code never loads on the startup path.
+
+## Plugin API
+
+The plugin is named `sip`. `src/api.ts` is the only file that calls `invoke`. Every command that changes data returns the new `Snapshot`, and the UI replaces its whole state with it. A rejected command carries a message the UI shows as a toast.
+
+JSON shapes, as TypeScript:
+
+```ts
+type IconKey = string; // one of ICON_KEYS from icons.gen.ts
+interface DrinkType { id: number; label: string; icon: IconKey; position: number; archived: boolean }
+interface Volume { id: number; ml: number; label: string; icon: IconKey; position: number }
+interface DrinkLog { id: number; atMs: number; ml: number; typeId: number }
+interface ReminderSettings {
+	enabled: boolean; intervalMin: number; quietAfterDrinkMin: number;
+	activeFrom: string; activeTo: string; // "HH:mm"
+	pauseWhenGoalMet: boolean;
+}
+interface Settings { dailyGoalMl: number; reminders: ReminderSettings; lastVolumeId: number | null; lastTypeId: number | null }
+interface Snapshot {
+	settings: Settings; types: DrinkType[]; volumes: Volume[];
+	todayLogs: DrinkLog[]; dayStartMs: number; lastDrinkAtMs: number | null;
+}
+interface ReminderStatus {
+	notificationsAllowed: boolean; channelEnabled: boolean; exactAlarmsAllowed: boolean;
+	batteryUnrestricted: boolean; nextReminderAtMs: number | null; missedReminderAtMs: number | null;
+}
+```
+
+`types` includes archived types, so old logs can still show their icon. Pickers filter them out.
+
+| Command | Arguments | Returns |
+| --- | --- | --- |
+| `snapshot` | none | `Snapshot` |
+| `logDrink` | `volumeId`, `typeId` | `Snapshot`. Copies `ml` from the volume and sets `lastVolumeId` and `lastTypeId`. |
+| `addLog` | `atMs`, `ml`, `typeId` | `Snapshot`. Undo for a deleted log. |
+| `updateLog` | `id`, `atMs`, `ml`, `typeId` | `Snapshot` |
+| `deleteLog` | `id` | `Snapshot` |
+| `saveVolume` | `id` (absent for new), `ml`, `label`, `icon` | `Snapshot`. A new volume goes last. |
+| `deleteVolume` | `id` | `Snapshot`. Rejects the last volume. |
+| `reorderVolumes` | `ids` in the new order | `Snapshot` |
+| `saveType`, `deleteType`, `reorderTypes` | same pattern, with `label` and `icon` | `Snapshot`. Delete archives the type and rejects the last active one. |
+| `saveSettings` | `dailyGoalMl` and `reminders`, each optional | `Snapshot` |
+| `reminderStatus` | none | `ReminderStatus` |
+| `openSystemSettings` | `target`: `notifications`, `exactAlarms`, `battery`, or `app` | nothing |
+| `sendTestReminder` | none | nothing. A reminder arrives in 60 seconds. |
+| `haptic` | none | nothing. Android WebView ignores `navigator.vibrate`. |
+| `fullyDrawn` | none | nothing. Calls `reportFullyDrawn()`, then reconciles reminders off the main thread. |
+
+The plugin also emits a `changed` event with a `Snapshot` after any write that didn't come from the UI, such as the notification button. Notification permission uses Tauri's built-in `checkPermissions` and `requestPermissions` with the alias `notifications`.
+
+`saveSettings` validates input. The goal must be 500 to 6000 ml, the interval 15 to 240 minutes, and the quiet time 0 to 240 minutes, and `activeFrom` must come before `activeTo`. Labels must be 1 to 24 characters, `ml` 10 to 3000, and icon keys must be in `IconKeys`.
+
+## Build order and file ownership
+
+1. The core delegate does the blocking work. It moves the sketch to the root and renames it. It writes the domain, the planner and its tests, the database, the repository, every command, `api.ts`, the icon generator, the app icon, and signing. It leaves `reminders/` as no-op stubs, so `Reconciler.reconcile()` exists and does nothing.
+2. Two delegates then work in parallel, each in its own git worktree.
+	- The reminders delegate owns `reminders/`, the plugin `AndroidManifest.xml`, and the notification icon. It is the only one that uses the phone in this phase.
+	- The UI delegate owns `src/`, except `api.ts` and `icons.gen.ts`. It checks layouts in a desktop browser against a development-only mock of `api.ts`, which never reaches the release bundle.
+3. I merge both, then verify everything on the Pixel. That includes startup, which must stay under 500 ms.
 
 ## Later, not in v1
 
 - History and per-day stats.
 - A home screen widget and a Quick Settings tile, for logging without opening the app.
-- A hydration factor per drink type, so beer can count less than water. In v1 every drink counts in full.
+- A hydration factor per drink type, so juice or beer can count less than water. In v1 every drink counts in full.
 - Backup and export.
 - A day that starts at 04:00 instead of midnight.
