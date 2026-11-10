@@ -217,6 +217,16 @@ class Repo private constructor(context: Context) {
         else setKv(db, Kv.SCHEDULED_FOR_MS, at.toEpochMilli().toString())
     }
 
+    /** The reminder that was due but never fired. The reconciler sets it, and a reminder that fires clears it. */
+    @Synchronized
+    fun missedReminderAt(): Instant? = getKv(Kv.MISSED_REMINDER_MS)?.toLongOrNull()?.let(Instant::ofEpochMilli)
+
+    @Synchronized
+    fun setMissedReminderAt(at: Instant?) = tx { db ->
+        if (at == null) db.delete("kv", "key = ?", arrayOf(Kv.MISSED_REMINDER_MS))
+        else setKv(db, Kv.MISSED_REMINDER_MS, at.toEpochMilli().toString())
+    }
+
     @Synchronized
     fun nextReminderAt(now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()): Instant? {
         val s = snapshot(now, zone)

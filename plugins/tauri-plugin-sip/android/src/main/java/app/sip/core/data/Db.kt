@@ -17,6 +17,7 @@ object Kv {
     const val LAST_TYPE_ID = "last_type_id"
     const val SCHEDULED_FOR_MS = "scheduled_for_ms"
     const val LAST_FIRED_MS = "last_fired_ms"
+    const val MISSED_REMINDER_MS = "missed_reminder_ms"
 }
 
 class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 1) {
