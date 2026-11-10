@@ -1,0 +1,25 @@
+[default]
+description = "Every Sip plugin command"
+permissions = [
+  "allow-snapshot",
+  "allow-log-drink",
+  "allow-add-log",
+  "allow-update-log",
+  "allow-delete-log",
+  "allow-save-volume",
+  "allow-delete-volume",
+  "allow-reorder-volumes",
+  "allow-save-type",
+  "allow-delete-type",
+  "allow-reorder-types",
+  "allow-save-settings",
+  "allow-reminder-status",
+  "allow-open-system-settings",
+  "allow-send-test-reminder",
+  "allow-haptic",
+  "allow-fully-drawn",
+  "allow-check-permissions",
+  "allow-request-permissions",
+  "allow-register-listener",
+  "allow-remove-listener",
+]

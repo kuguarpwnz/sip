@@ -1,3 +1,0 @@
-[default]
-description = "Snapshot read and reportFullyDrawn"
-permissions = ["allow-snapshot", "allow-fully-drawn"]

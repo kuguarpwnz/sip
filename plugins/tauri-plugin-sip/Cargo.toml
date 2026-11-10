@@ -1,0 +1,13 @@
+[package]
+name = "tauri-plugin-sip"
+version = "0.1.0"
+description = "Kotlin-owned SQLite store, reminders and commands for Sip"
+edition = "2024"
+rust-version = "1.90"
+links = "tauri-plugin-sip"
+
+[dependencies]
+tauri = { version = "2" }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
