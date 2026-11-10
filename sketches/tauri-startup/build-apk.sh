@@ -16,9 +16,9 @@ pnpm tauri android build --apk --target aarch64
 unsigned=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 aligned=sip-tauri-aligned.apk
 signed=sip-tauri.apk
-rm -f "$aligned" "$signed" "$signed.idsig"
+rm -f "$aligned" "$signed"
 zipalign -P 16 -f 4 "$unsigned" "$aligned"
-apksigner sign --ks "$ks" --ks-pass "pass:$pass" --key-pass "pass:$pass" --out "$signed" "$aligned"
+apksigner sign --v4-signing-enabled false --ks "$ks" --ks-pass "pass:$pass" --key-pass "pass:$pass" --out "$signed" "$aligned"
 rm -f "$aligned"
 apksigner verify --verbose "$signed"
 zipalign -c -P 16 4 "$signed" && echo "zipalign ok"
