@@ -1,0 +1,17 @@
+[package]
+name = "tauri-plugin-sip-store"
+version = "0.1.0"
+authors = ["sketch"]
+description = "Kotlin-owned SQLite store for the Sip startup sketch"
+edition = "2024"
+rust-version = "1.90"
+links = "tauri-plugin-sip-store"
+
+[dependencies]
+tauri = { version = "2" }
+serde = "1"
+serde_json = "1"
+thiserror = "2"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
