@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-send-test-reminder"
+description = "Enables the send_test_reminder command without any pre-configured scope."
+commands.allow = ["send_test_reminder"]
+
+[[permission]]
+identifier = "deny-send-test-reminder"
+description = "Denies the send_test_reminder command without any pre-configured scope."
+commands.deny = ["send_test_reminder"]

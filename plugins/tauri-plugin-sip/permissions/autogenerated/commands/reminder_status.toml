@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-reminder-status"
+description = "Enables the reminder_status command without any pre-configured scope."
+commands.allow = ["reminder_status"]
+
+[[permission]]
+identifier = "deny-reminder-status"
+description = "Denies the reminder_status command without any pre-configured scope."
+commands.deny = ["reminder_status"]
