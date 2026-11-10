@@ -31,7 +31,7 @@ echo "component: $component"
 echo "runs:      $runs (plus one warm-up)"
 
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null
-if ! shell dumpsys power | grep -q 'mWakefulness=Awake'; then
+if ! shell dumpsys power | grep 'mWakefulness=Awake' >/dev/null; then
 	echo "error: screen is not awake" >&2
 	exit 1
 fi

@@ -9,9 +9,24 @@ Sip is a water reminder and drink logger for one Android phone, a Pixel 6a. It r
 - A cold start paints the real main screen, with today's total, in under 500 ms on the Pixel 6a. That number is the median of 15 cold starts. The app calls `Activity.reportFullyDrawn()` once real data is on screen, and `sketches/measure-startup.sh` reads the "Fully drawn" time from logcat. The first frame of an empty WebView does not count.
 - Logging from a reminder needs no app launch at all. The notification has a "+250 ml Water" button that writes the log from a `BroadcastReceiver`.
 
-## The stack is decided by measurement
+## Stack: Tauri 2 + Solid, by measurement
 
-The rule is to build Tauri 2 + Solid first and keep it if it meets the 500 ms budget. If it misses, build native Kotlin + Jetpack Compose and measure that. Solid is picked over React because its runtime is smaller, which only helps startup.
+The rule was to build Tauri 2 + Solid first and keep it if it met the 500 ms budget. Solid is picked over React because its runtime is smaller, which only helps startup.
+
+The sketch in `sketches/tauri-startup/` makes the real startup path. A Solid main screen gets its data from one Kotlin plugin call that reads SQLite, then calls `reportFullyDrawn()`. Results on the Pixel 6a with Android 17 and WebView 156, measured on 2026-11-10:
+
+| Build state | Runs | Fully drawn, median | Range | First frame, median |
+| --- | --- | --- | --- | --- |
+| As installed | 15 | 301 ms | 278 to 424 ms | 86 ms |
+| After `cmd package compile -m speed` | 15 | 296 ms | 283 to 361 ms | 92 ms |
+
+- `am start -W` reported `LaunchState: COLD` for every launch, and no process existed before each one. All 30 runs reported Fully drawn.
+- `sketches/tauri-startup/screen.png` shows the seeded data on screen, so the timer stops after real content paints.
+- The first launch after install took 728 ms because it creates the database. Every launch after that is in the table.
+- The WebView limits the number. In one timed run, the first frame was at 97 ms and Chromium started loading at 90 ms. The renderer process was ready at 196 ms, and the content painted at 342 ms. Native Kotlin would skip that WebView work.
+- Not measured yet: the first launch after a reboot, and whether a white frame shows between the first frame and the content.
+
+Rerun with `sketches/measure-startup.sh <package> 15`.
 
 In both stacks Kotlin owns storage, alarms, receivers, and notifications. The alarm receiver and the notification button run with no UI on screen. If storage lived behind the WebView, Android would have to start a WebView just to write one row. So the two stacks differ only in the UI layer, and the Kotlin core below is the same.
 
