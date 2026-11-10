@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.tauri_startup" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your theme here. -->
+    <style name="Theme.tauri_startup" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/app_bg</item>
+        <item name="android:statusBarColor">@color/app_bg</item>
+        <item name="android:navigationBarColor">@color/app_bg</item>
     </style>
 </resources>

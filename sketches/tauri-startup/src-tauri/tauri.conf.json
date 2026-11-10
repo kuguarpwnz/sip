@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-startup",
+  "productName": "Sip Tauri Sketch",
   "version": "0.1.0",
   "identifier": "app.sip.sketch.tauri",
   "build": {
@@ -12,9 +12,8 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-startup",
-        "width": 800,
-        "height": 600
+        "title": "Sip",
+        "backgroundColor": "#0b1220"
       }
     ],
     "security": {
