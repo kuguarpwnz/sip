@@ -1,88 +1,106 @@
-import { createMemo, createSignal, For, onMount, Show } from "solid-js";
+import { onCleanup, onMount, Show, createSignal } from "solid-js";
 import * as api from "./api";
+import { sameDay } from "./format";
+import LogEditor from "./LogEditor";
+import Main from "./Main";
+import { Settings } from "./settings-lazy";
+import {
+  dismissToast,
+  layerOf,
+  layers,
+  refresh,
+  refreshReminderInfo,
+  setNow,
+  setSnap,
+  showToast,
+  snap,
+  toast,
+} from "./store";
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
-const fmtTime = (ms: number) =>
-  new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-const fmtMl = (ml: number) => ml.toLocaleString("sv-SE");
 
 export default function App() {
-  const [snap, setSnap] = createSignal<api.Snapshot>();
-  const [typeId, setTypeId] = createSignal(0);
-  const [volumeId, setVolumeId] = createSignal(0);
+  const [failed, setFailed] = createSignal(false);
+  let drawn = false;
 
-  const total = createMemo(() => snap()?.todayLogs.reduce((sum, l) => sum + l.ml, 0) ?? 0);
-  const goal = () => snap()?.settings.dailyGoalMl ?? 1;
-  const percent = () => Math.round((total() / goal()) * 100);
-  const volume = () => snap()?.volumes.find((v) => v.id === volumeId());
-  const typeLabel = (id: number) => snap()?.types.find((t) => t.id === id)?.label ?? "";
-
-  const show = (s: api.Snapshot) => {
-    setTypeId(s.settings.lastTypeId ?? s.types[0].id);
-    setVolumeId(s.settings.lastVolumeId ?? s.volumes[0].id);
-    setSnap(s);
-  };
-
-  const drink = async () => {
-    show(await api.logDrink(volumeId(), typeId()));
-    void api.haptic();
-  };
-
-  onMount(async () => {
-    show(await api.snapshot());
+  const start = async () => {
+    try {
+      setSnap(await api.snapshot());
+      setFailed(false);
+    } catch (e) {
+      setFailed(true);
+      return showToast(e instanceof Error ? e.message : String(e));
+    }
     await nextFrame();
     await nextFrame();
-    await api.fullyDrawn();
-    await api.onChanged(show);
+    await api.fullyDrawn().catch(() => {});
+    drawn = true;
+    void refreshReminderInfo();
+    api.onChanged(setSnap).catch((e) => showToast(String(e)));
+  };
+
+  onMount(() => {
+    void start();
+
+    const tick = () => {
+      setNow(Date.now());
+      const s = snap();
+      if (s && !sameDay(s.dayStartMs, Date.now())) void refresh();
+    };
+    const timer = setInterval(tick, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      setNow(Date.now());
+      void refresh();
+      if (drawn) void refreshReminderInfo();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    onCleanup(() => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    });
   });
 
   return (
-    <Show when={snap()}>
-      {(s) => (
-        <main>
-          <header>
-            <h1>Today</h1>
-          </header>
-          <section class="summary">
-            <div class="ring" style={{ "--pct": `${Math.min(percent(), 100)}%` }}>
-              <span>{percent()}%</span>
+    <>
+      <Show
+        when={snap()}
+        fallback={
+          <Show when={failed()}>
+            <div class="failed">
+              <p>Couldn't load your drinks.</p>
+              <button class="btn primary" onClick={() => void start()}>
+                Retry
+              </button>
             </div>
-            <p class="total">
-              {fmtMl(total())} / {fmtMl(goal())} ml
-            </p>
-          </section>
-          <ul class="logs">
-            <For each={s().todayLogs}>
-              {(l) => (
-                <li>
-                  <time>{fmtTime(l.atMs)}</time>
-                  <span class="what">{typeLabel(l.typeId)}</span>
-                  <span class="ml">{l.ml} ml</span>
-                </li>
-              )}
-            </For>
-          </ul>
-          <section class="chips">
-            <For each={s().types.filter((t) => !t.archived)}>
-              {(t) => (
-                <button classList={{ on: t.id === typeId() }} onClick={() => setTypeId(t.id)}>
-                  {t.label}
-                </button>
-              )}
-            </For>
-          </section>
-          <section class="chips">
-            <For each={s().volumes}>
-              {(v) => (
-                <button classList={{ on: v.id === volumeId() }} onClick={() => setVolumeId(v.id)}>
-                  {v.ml}
-                </button>
-              )}
-            </For>
-          </section>
-          <button class="drink" onClick={drink}>+ DRINK {volume()?.ml} ml</button>
-        </main>
-      )}
-    </Show>
+          </Show>
+        }
+      >
+        <Main />
+      </Show>
+
+      <Show when={layerOf("settings")}>
+        {(l) => <Settings focus={l().focus} />}
+      </Show>
+      <Show when={layerOf("logEditor")}>{(l) => <LogEditor logId={l().logId} />}</Show>
+
+      <Show when={toast()} keyed>
+        {(t) => (
+          <div class="toast" classList={{ lifted: layers().length === 0 }} role="status">
+            <span>{t.text}</span>
+            <Show when={t.undo}>
+              <button
+                onClick={() => {
+                  dismissToast();
+                  t.undo!();
+                }}
+              >
+                Undo
+              </button>
+            </Show>
+          </div>
+        )}
+      </Show>
+    </>
   );
 }
