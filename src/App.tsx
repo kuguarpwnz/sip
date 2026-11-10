@@ -1,6 +1,5 @@
 import { createMemo, createSignal, For, onMount, Show } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
-import type { Snapshot } from "./model";
+import * as api from "./api";
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 const fmtTime = (ms: number) =>
@@ -8,7 +7,7 @@ const fmtTime = (ms: number) =>
 const fmtMl = (ml: number) => ml.toLocaleString("sv-SE");
 
 export default function App() {
-  const [snap, setSnap] = createSignal<Snapshot>();
+  const [snap, setSnap] = createSignal<api.Snapshot>();
   const [typeId, setTypeId] = createSignal(0);
   const [volumeId, setVolumeId] = createSignal(0);
 
@@ -18,17 +17,23 @@ export default function App() {
   const volume = () => snap()?.volumes.find((v) => v.id === volumeId());
   const typeLabel = (id: number) => snap()?.types.find((t) => t.id === id)?.label ?? "";
 
-  onMount(async () => {
-    console.log(`sip:mounted t=${Math.round(performance.now())}ms`);
-    const s = await invoke<Snapshot>("plugin:sip-store|snapshot");
-    console.log(`sip:snapshot t=${Math.round(performance.now())}ms`);
+  const show = (s: api.Snapshot) => {
     setTypeId(s.settings.lastTypeId ?? s.types[0].id);
     setVolumeId(s.settings.lastVolumeId ?? s.volumes[0].id);
     setSnap(s);
+  };
+
+  const drink = async () => {
+    show(await api.logDrink(volumeId(), typeId()));
+    void api.haptic();
+  };
+
+  onMount(async () => {
+    show(await api.snapshot());
     await nextFrame();
     await nextFrame();
-    console.log(`sip:painted t=${Math.round(performance.now())}ms`);
-    await invoke("plugin:sip-store|fully_drawn");
+    await api.fullyDrawn();
+    await api.onChanged(show);
   });
 
   return (
@@ -75,7 +80,7 @@ export default function App() {
               )}
             </For>
           </section>
-          <button class="drink">+ DRINK {volume()?.ml} ml</button>
+          <button class="drink" onClick={drink}>+ DRINK {volume()?.ml} ml</button>
         </main>
       )}
     </Show>
