@@ -3,6 +3,8 @@
 # Prints the serial on stdout, progress on stderr: export ANDROID_SERIAL=$(scripts/emulator.sh)
 # Usage: emulator.sh [--window] [--stop]
 set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+source "$root/env.sh"
 
 avd=sip_pixel_6a
 image="system-images;android-36;google_apis;arm64-v8a"
