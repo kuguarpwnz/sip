@@ -239,7 +239,20 @@ class Repo private constructor(context: Context) {
             today = now.atZone(zone).toLocalDate(),
             lastDrinkAt = s.lastDrinkAt,
             lastReminderAt = lastReminderAt(),
+            clockStart = clockStart(now),
         )
+    }
+
+    /** Databases created before the anchor existed lack the key. The first call persists `now` and later calls keep it. */
+    private fun clockStart(now: Instant): Instant = tx { db ->
+        db.execSQL(
+            "INSERT OR IGNORE INTO kv (key, value) VALUES (?, ?)",
+            arrayOf<Any>(Kv.CLOCK_START_MS, now.toEpochMilli().toString()),
+        )
+        db.rawQuery("SELECT value FROM kv WHERE key = ?", arrayOf(Kv.CLOCK_START_MS)).use {
+            it.moveToFirst()
+            Instant.ofEpochMilli(it.getString(0).toLong())
+        }
     }
 
     private inline fun <T> tx(block: (SQLiteDatabase) -> T): T {

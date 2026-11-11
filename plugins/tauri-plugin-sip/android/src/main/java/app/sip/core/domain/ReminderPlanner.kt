@@ -19,13 +19,14 @@ object ReminderPlanner {
         today: LocalDate,
         lastDrinkAt: Instant?,
         lastReminderAt: Instant?,
+        clockStart: Instant,
     ): Instant? {
         if (!settings.enabled) return null
 
         val afterReminder = lastReminderAt?.plus(Duration.ofMinutes(settings.intervalMinutes.toLong()))
         val afterDrink = lastDrinkAt?.plus(Duration.ofMinutes(settings.quietAfterDrinkMinutes.toLong()))
         var candidate = listOfNotNull(afterReminder, afterDrink).maxOrNull()
-            ?: now.plus(Duration.ofMinutes(settings.intervalMinutes.toLong()))
+            ?: clockStart.plus(Duration.ofMinutes(settings.intervalMinutes.toLong()))
 
         if (candidate.isBefore(now)) candidate = now.plus(RETRY_AFTER_MISS)
 

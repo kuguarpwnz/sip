@@ -29,6 +29,7 @@ class ReminderPlannerTest {
         goalMl: Int = 2000,
         lastDrink: String? = null,
         lastReminder: String? = null,
+        clockStart: String = now,
     ): Instant? {
         val nowInstant = at(now)
         return ReminderPlanner.next(
@@ -40,6 +41,7 @@ class ReminderPlannerTest {
             today = nowInstant.atZone(zone).toLocalDate(),
             lastDrinkAt = lastDrink?.let(::at),
             lastReminderAt = lastReminder?.let(::at),
+            clockStart = at(clockStart),
         )
     }
 
@@ -52,6 +54,26 @@ class ReminderPlannerTest {
     fun bothTimesMissingWaitsOneInterval() {
         assertEquals(at("2026-06-10T11:00"), next("2026-06-10T10:00"))
         assertEquals(at("2026-06-10T11:30"), next("2026-06-10T10:00", settings(interval = 90)))
+    }
+
+    @Test
+    fun noHistoryReturnsTheSameInstantAtDifferentNows() {
+        val first = next("2026-06-10T10:00", clockStart = "2026-06-10T09:30")
+        val later = next("2026-06-10T10:10", clockStart = "2026-06-10T09:30")
+        assertEquals(at("2026-06-10T10:30"), first)
+        assertEquals(first, later)
+    }
+
+    @Test
+    fun noHistoryWithAnOldAnchorFiresInOneMinute() {
+        assertEquals(at("2026-06-10T10:01"), next("2026-06-10T10:00", clockStart = "2026-06-01T09:00"))
+    }
+
+    @Test
+    fun anchorIsIgnoredOnceAReminderOrDrinkExists() {
+        val old = "2026-06-01T09:00"
+        assertEquals(at("2026-06-10T10:30"), next("2026-06-10T10:00", lastReminder = "2026-06-10T09:30", clockStart = old))
+        assertEquals(at("2026-06-10T10:40"), next("2026-06-10T10:00", lastDrink = "2026-06-10T09:40", clockStart = old))
     }
 
     @Test
