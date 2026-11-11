@@ -18,7 +18,6 @@ object Kv {
     const val SCHEDULED_FOR_MS = "scheduled_for_ms"
     const val LAST_FIRED_MS = "last_fired_ms"
     const val MISSED_REMINDER_MS = "missed_reminder_ms"
-    const val CLOCK_START_MS = "clock_start_ms"
 }
 
 class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 1) {
@@ -69,7 +68,6 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 1) {
             Kv.PAUSE_WHEN_GOAL_MET to "1",
             Kv.LAST_VOLUME_ID to "2",
             Kv.LAST_TYPE_ID to "1",
-            Kv.CLOCK_START_MS to System.currentTimeMillis().toString(),
         ).forEach { (k, v) ->
             db.insertOrThrow("kv", null, ContentValues().apply { put("key", k); put("value", v) })
         }
