@@ -166,8 +166,6 @@ main > header .icon-btn { margin-right: -12px; }
   width: 100%;
 }
 .row2 { display: flex; gap: 12px; }
-.menu { display: flex; flex-direction: column; gap: 12px; }
-.menu .btn { width: 100%; }
 .actions { display: flex; gap: 12px; }
 .actions .btn { flex: 1; }
 

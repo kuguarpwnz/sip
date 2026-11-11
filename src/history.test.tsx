@@ -106,7 +106,7 @@ describe("tapping a history row", () => {
 });
 
 describe("holding a history row", () => {
-  it("opens the menu after 450 ms, and the click after release does not select", async () => {
+  it("opens the editor after 450 ms, and the click after release does not select", async () => {
     await boot(addTea400);
     const r = row(TEA_400);
 
@@ -114,17 +114,20 @@ describe("holding a history row", () => {
     await vi.advanceTimersByTimeAsync(HOLD_MS - 1);
     expect(dialogs()).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(1);
-    expect(t.screen.getByRole("dialog", { name: /^\d\d:\d\d Tea 400 ml$/ })).toBeTruthy();
+    const editor = t.screen.getByRole("dialog", { name: "Edit drink" });
+    expect((t.within(editor).getByLabelText("Amount (ml)") as HTMLInputElement).value).toBe("400");
+    expect(t.within(editor).getByRole("radio", { name: "Tea" }).getAttribute("aria-checked")).toBe("true");
 
     t.fireEvent.pointerUp(r);
     t.fireEvent.click(r);
     await settle();
+    await back();
 
     expect(selected()).toEqual(["Water", "250 ml"]);
     expect(toastText()).toBeUndefined();
   });
 
-  it("opens no menu when the pointer moves more than 10 px first", async () => {
+  it("opens no dialog when the pointer moves more than 10 px first", async () => {
     await boot(addTea400);
     const r = row(TEA_400);
 
@@ -136,7 +139,7 @@ describe("holding a history row", () => {
     expect(dialogs()).toHaveLength(0);
   });
 
-  it("opens no menu when the gesture is cancelled", async () => {
+  it("opens no dialog when the gesture is cancelled", async () => {
     await boot(addTea400);
     const r = row(TEA_400);
 
@@ -148,13 +151,13 @@ describe("holding a history row", () => {
     expect(dialogs()).toHaveLength(0);
   });
 
-  it("opens the menu on contextmenu, once however many times it fires", async () => {
+  it("opens the editor on contextmenu, once however many times it fires", async () => {
     await boot(addTea400);
     const r = row(TEA_400);
 
     t.fireEvent.contextMenu(r);
     await settle();
-    expect(t.screen.getByRole("dialog", { name: /Tea 400 ml$/ })).toBeTruthy();
+    expect(t.screen.getByRole("dialog", { name: "Edit drink" })).toBeTruthy();
 
     t.fireEvent.contextMenu(r);
     await settle();
@@ -162,7 +165,7 @@ describe("holding a history row", () => {
   });
 });
 
-describe("the log menu", () => {
+describe("the editor opened by a long press", () => {
   it("closes on Back", async () => {
     await boot(addTea400);
     t.fireEvent.contextMenu(row(TEA_400));
@@ -174,32 +177,13 @@ describe("the log menu", () => {
     expect(dialogs()).toHaveLength(0);
   });
 
-  it("Edit swaps in the editor for that drink, and Back returns to the main screen", async () => {
-    await boot(addTea400);
-    t.fireEvent.contextMenu(row(TEA_400));
-    await settle();
-
-    t.fireEvent.click(t.screen.getByRole("button", { name: "Edit" }));
-    await settle();
-
-    expect(dialogs()).toHaveLength(1);
-    const editor = t.screen.getByRole("dialog", { name: "Edit drink" });
-    expect((t.within(editor).getByLabelText("Amount (ml)") as HTMLInputElement).value).toBe("400");
-    expect(t.within(editor).getByRole("radio", { name: "Tea" }).getAttribute("aria-checked")).toBe("true");
-
-    await back();
-
-    expect(dialogs()).toHaveLength(0);
-    expect(t.screen.getByRole("heading", { name: "Today" })).toBeTruthy();
-  });
-
   it("Delete removes the drink, and Undo brings back the same one", async () => {
     await boot(addTea400);
     const name = row(TEA_400).textContent!;
     t.fireEvent.contextMenu(row(TEA_400));
     await settle();
 
-    t.fireEvent.click(t.screen.getByRole("button", { name: "Delete" }));
+    t.fireEvent.click(t.within(t.screen.getByRole("dialog", { name: "Edit drink" })).getByRole("button", { name: "Delete" }));
     await settle();
 
     expect(t.screen.queryByRole("button", { name: TEA_400 })).toBeNull();
@@ -216,7 +200,7 @@ describe("the log menu", () => {
     await boot(addTea400);
     t.fireEvent.contextMenu(row(TEA_400));
     await settle();
-    t.fireEvent.click(t.screen.getByRole("button", { name: "Delete" }));
+    t.fireEvent.click(t.within(t.screen.getByRole("dialog", { name: "Edit drink" })).getByRole("button", { name: "Delete" }));
     await settle();
     expect(t.screen.queryByRole("button", { name: "Undo" })).not.toBeNull();
 

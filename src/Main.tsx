@@ -84,9 +84,9 @@ export default function Main() {
   let pressY = 0;
   let swallowClick = false;
   const cancelPress = () => clearTimeout(pressTimer);
-  const openMenu = (logId: number) => {
+  const openEditor = (logId: number) => {
     cancelPress();
-    if (layerOf("logMenu")?.logId !== logId) openLayer({ kind: "logMenu", logId });
+    if (layerOf("logEditor")?.logId !== logId) openLayer({ kind: "logEditor", logId });
   };
   const pressStart = (e: PointerEvent, logId: number) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -97,7 +97,7 @@ export default function Main() {
     pressTimer = setTimeout(() => {
       swallowClick = true;
       void api.haptic().catch(() => {});
-      openMenu(logId);
+      openEditor(logId);
     }, LONG_PRESS_MS);
   };
   const pressMove = (e: PointerEvent) => {
@@ -185,7 +185,7 @@ export default function Main() {
                 onPointerLeave={cancelPress}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  openMenu(l.id);
+                  openEditor(l.id);
                 }}
                 onClick={() => rowClick(l)}
               >
