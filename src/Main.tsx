@@ -1,11 +1,13 @@
-import { createMemo, For, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, For, on, onMount, Show, type JSX } from "solid-js";
 import * as api from "./api";
+import type { DrinkLog } from "./api";
 import { ago, fmtMl, hhmm } from "./format";
 import { GEAR } from "./glyphs";
 import { Glyph, Icon } from "./Icon";
 import { Settings } from "./settings-lazy";
 import {
   now,
+  layerOf,
   openLayer,
   permission,
   refreshReminderInfo,
@@ -22,9 +24,19 @@ import {
 
 const s = () => snap()!;
 
-const ChipRow = (p: { label: string; children: JSX.Element }) => {
+const LONG_PRESS_MS = 450;
+const MOVE_SLOP_PX = 10;
+
+const ChipRow = (p: { label: string; selected: number | undefined; children: JSX.Element }) => {
   let el!: HTMLDivElement;
   onMount(() => el.querySelector(".on")?.scrollIntoView({ inline: "center", block: "nearest" }));
+  createEffect(
+    on(
+      () => p.selected,
+      () => el.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" }),
+      { defer: true },
+    ),
+  );
   return (
     <div class="chips" role="radiogroup" aria-label={p.label} ref={el}>
       {p.children}
@@ -49,6 +61,51 @@ export default function Main() {
     void api.haptic().catch(() => {});
     const newest = next.todayLogs.reduce((a, b) => (b.id > a.id ? b : a));
     showToast(`Logged ${v.ml} ml ${t.label}`, () => void run(() => api.deleteLog(newest.id)));
+  };
+
+  const pickLog = (l: DrinkLog) => {
+    const t = typeById().get(l.typeId);
+    const typeId = t && !t.archived ? t.id : undefined;
+    const volumeId = s().volumes.find((v) => v.ml === l.ml)?.id;
+    setPick((p) => ({
+      typeId: typeId ?? p.typeId,
+      volumeId: volumeId ?? p.volumeId,
+    }));
+    const misses = [
+      volumeId === undefined && `No ${fmtMl(l.ml)} ml volume to select`,
+      typeId === undefined && `${t?.label ?? "That drink"} is no longer a drink type`,
+    ].filter(Boolean);
+    if (misses.length) showToast(misses.join(", and "));
+    else void api.haptic().catch(() => {});
+  };
+
+  let pressTimer: ReturnType<typeof setTimeout> | undefined;
+  let pressX = 0;
+  let pressY = 0;
+  let swallowClick = false;
+  const cancelPress = () => clearTimeout(pressTimer);
+  const openMenu = (logId: number) => {
+    cancelPress();
+    if (layerOf("logMenu")?.logId !== logId) openLayer({ kind: "logMenu", logId });
+  };
+  const pressStart = (e: PointerEvent, logId: number) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    swallowClick = false;
+    pressX = e.clientX;
+    pressY = e.clientY;
+    cancelPress();
+    pressTimer = setTimeout(() => {
+      swallowClick = true;
+      void api.haptic().catch(() => {});
+      openMenu(logId);
+    }, LONG_PRESS_MS);
+  };
+  const pressMove = (e: PointerEvent) => {
+    if (Math.hypot(e.clientX - pressX, e.clientY - pressY) > MOVE_SLOP_PX) cancelPress();
+  };
+  const rowClick = (l: DrinkLog) => {
+    if (swallowClick) swallowClick = false;
+    else pickLog(l);
   };
 
   const allowReminders = async () => {
@@ -120,7 +177,18 @@ export default function Main() {
         <For each={newestFirst()} fallback={<li class="empty">No drinks yet today</li>}>
           {(l) => (
             <li>
-              <button onClick={() => openLayer({ kind: "logEditor", logId: l.id })}>
+              <button
+                onPointerDown={(e) => pressStart(e, l.id)}
+                onPointerMove={pressMove}
+                onPointerUp={cancelPress}
+                onPointerCancel={cancelPress}
+                onPointerLeave={cancelPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  openMenu(l.id);
+                }}
+                onClick={() => rowClick(l)}
+              >
                 <time>{hhmm(l.atMs)}</time>
                 <Icon name={typeById().get(l.typeId)?.icon ?? "droplet"} />
                 <span class="what">{typeById().get(l.typeId)?.label}</span>
@@ -132,7 +200,7 @@ export default function Main() {
       </ul>
 
       <div class="dock">
-        <ChipRow label="Drink type">
+        <ChipRow label="Drink type" selected={selectedTypeId()}>
           <For each={s().types.filter((t) => !t.archived)}>
             {(t) => (
               <button
@@ -147,7 +215,7 @@ export default function Main() {
             )}
           </For>
         </ChipRow>
-        <ChipRow label="Volume">
+        <ChipRow label="Volume" selected={selectedVolumeId()}>
           <For each={s().volumes}>
             {(v) => (
               <button

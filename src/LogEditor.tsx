@@ -3,7 +3,7 @@ import * as api from "./api";
 import { hhmm } from "./format";
 import { Icon } from "./Icon";
 import { Field, Sheet } from "./Sheet";
-import { closeLayer, run, showToast, snap } from "./store";
+import { closeLayer, deleteLogWithUndo, run, showToast, snap } from "./store";
 
 export default function LogEditor(p: { logId: number }) {
   const log = untrack(() => snap()?.todayLogs.find((l) => l.id === p.logId));
@@ -16,8 +16,7 @@ export default function LogEditor(p: { logId: number }) {
         const [typeId, setTypeId] = createSignal(l().typeId);
         const [time, setTime] = createSignal(hhmm(l().atMs));
         const types = () => snap()!.types.filter((t) => !t.archived || t.id === l().typeId);
-        const label = () => snap()!.types.find((t) => t.id === l().typeId)?.label ?? "";
-
+        
         const save = async () => {
           const amount = Math.round(Number(ml()));
           if (!ml() || !Number.isFinite(amount)) return showToast("Enter the amount in ml");
@@ -29,13 +28,6 @@ export default function LogEditor(p: { logId: number }) {
             atMs = d.getTime();
           }
           if (await run(() => api.updateLog({ id: l().id, atMs, ml: amount, typeId: typeId() }))) closeLayer();
-        };
-
-        const remove = async () => {
-          const gone = l();
-          if (!(await run(() => api.deleteLog(gone.id)))) return;
-          closeLayer();
-          showToast(`Deleted ${gone.ml} ml ${label()}`, () => void run(() => api.addLog({ atMs: gone.atMs, ml: gone.ml, typeId: gone.typeId })));
         };
 
         return (
@@ -64,7 +56,7 @@ export default function LogEditor(p: { logId: number }) {
               </For>
             </div>
             <div class="actions">
-              <button class="btn danger" onClick={remove}>
+              <button class="btn danger" onClick={() => void deleteLogWithUndo(l())}>
                 Delete
               </button>
               <button class="btn primary" onClick={save}>

@@ -2,6 +2,7 @@ import { onCleanup, onMount, Show, createSignal } from "solid-js";
 import * as api from "./api";
 import { sameDay } from "./format";
 import LogEditor from "./LogEditor";
+import LogMenu from "./LogMenu";
 import Main from "./Main";
 import { Settings } from "./settings-lazy";
 import {
@@ -83,6 +84,7 @@ export default function App() {
         {(l) => <Settings focus={l().focus} />}
       </Show>
       <Show when={layerOf("logEditor")}>{(l) => <LogEditor logId={l().logId} />}</Show>
+      <Show when={layerOf("logMenu")}>{(l) => <LogMenu logId={l().logId} />}</Show>
 
       <Show when={toast()} keyed>
         {(t) => (

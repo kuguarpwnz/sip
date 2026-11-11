@@ -4,6 +4,7 @@ import * as api from "./api";
 export type Layer =
   | { kind: "settings"; focus?: "reliability" }
   | { kind: "logEditor"; logId: number }
+  | { kind: "logMenu"; logId: number }
   | { kind: "volumeEditor"; id: number | null }
   | { kind: "typeEditor"; id: number | null };
 
@@ -105,6 +106,16 @@ export const openLayer = (layer: Layer) => {
 };
 
 export const closeLayer = () => history.back();
+
+/** Swaps the top layer in place, so Back from the new layer lands where Back from the old one would. */
+export const replaceTopLayer = (layer: Layer) => setLayers((l) => [...l.slice(0, -1), layer]);
+
+export const deleteLogWithUndo = async (gone: api.DrinkLog) => {
+  if (!(await run(() => api.deleteLog(gone.id)))) return;
+  closeLayer();
+  const label = snap()?.types.find((t) => t.id === gone.typeId)?.label ?? "";
+  showToast(`Deleted ${gone.ml} ml ${label}`, () => void run(() => api.addLog({ atMs: gone.atMs, ml: gone.ml, typeId: gone.typeId })));
+};
 
 history.replaceState({ depth: 0 }, "");
 addEventListener("popstate", (e) => {

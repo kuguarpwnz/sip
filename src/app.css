@@ -95,7 +95,11 @@ main > header .icon-btn { margin-right: -12px; }
   gap: 12px;
   text-align: left;
   border-bottom: 1px solid var(--surface);
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
+.logs button:active { background: var(--surface); }
 .logs time { color: var(--muted); width: 44px; font-variant-numeric: tabular-nums; }
 .logs .what { flex: 1; }
 .logs .ml { white-space: nowrap; }
@@ -162,6 +166,8 @@ main > header .icon-btn { margin-right: -12px; }
   width: 100%;
 }
 .row2 { display: flex; gap: 12px; }
+.menu { display: flex; flex-direction: column; gap: 12px; }
+.menu .btn { width: 100%; }
 .actions { display: flex; gap: 12px; }
 .actions .btn { flex: 1; }
 

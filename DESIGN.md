@@ -148,7 +148,7 @@ Today                                   [settings]
             last drink 25 min ago
 --------------------------------------------------
  14:05   [drop]  Water    250 ml
- 12:40   [cup]   Coffee   150 ml      tap a row to edit
+ 12:40   [cup]   Coffee   150 ml      tap picks, hold edits
 --------------------------------------------------
  [Water] [Coffee] [Tea] [Juice] ...   drink types, scroll
  [150] [250] [330] [500] [750] ...    volumes with icons
@@ -157,7 +157,8 @@ Today                                   [settings]
 
 - The type chips, volume chips, and **+ DRINK** button sit at the bottom, in thumb reach. The last-used type and volume are preselected.
 - A tap on **+ DRINK** logs the drink, gives a haptic tick, animates the ring, and shows "Logged 250 ml Water. Undo" for four seconds.
-- A tap on a log row opens an editor for its volume, type, and time, so a drink you forgot to log can get the right time. The editor also has **Delete**.
+- A tap on a log row selects that drink's type and volume in the chip rows, ready for **+ DRINK**, so a repeat drink takes two taps. It logs nothing. If the type is archived or no volume matches the amount, that chip stays as it was and a toast says so.
+- A long press on a log row (450 ms, with a haptic tick) opens a small menu with **Edit** and **Delete**. **Edit** opens an editor for its volume, type, and time, so a drink you forgot to log can get the right time. **Delete** removes the drink and shows "Deleted 400 ml Tea. Undo".
 
 ### Settings
 
