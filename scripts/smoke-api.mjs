@@ -22,6 +22,9 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok || !detail ? "" : `  (${detail})`}`);
 };
 const show = (v) => JSON.stringify(v);
+const sortKeys = (v) =>
+  Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])])) : v;
+const sameFields = (a, b) => show(sortKeys(a)) === show(sortKeys(b));
 
 const waitFor = async (what, fn, timeoutMs = 20000) => {
   const end = Date.now() + timeoutMs;
@@ -110,8 +113,7 @@ try {
     check("seed: goal", s.settings.dailyGoalMl === 2000);
     check(
       "seed: reminder settings",
-      show(s.settings.reminders) ===
-        show({ enabled: true, intervalMin: 60, quietAfterDrinkMin: 60, activeFrom: "08:00", activeTo: "22:00", pauseWhenGoalMet: true }),
+      sameFields(s.settings.reminders, { enabled: true, intervalMin: 60, quietAfterDrinkMin: 60, activeFrom: "08:00", activeTo: "22:00", pauseWhenGoalMet: true }),
       show(s.settings.reminders),
     );
     check("seed: preselects 250 ml and Water", s.settings.lastVolumeId === volumeId(s, 250) && s.settings.lastTypeId === typeId(s, "Water"));
@@ -127,11 +129,12 @@ try {
   const v250 = volumeId(s, 250);
   const v330 = volumeId(s, 330);
 
-  const before = Date.now();
+  const before = await evaluate("Date.now()");
   s = await ok("log_drink", { volumeId: v330, typeId: coffee });
+  const after = await evaluate("Date.now()");
   const logged = s.todayLogs[0];
   check("logDrink copies ml from the volume", logged?.ml === 330 && logged.typeId === coffee, show(logged));
-  check("logDrink stamps the current time", logged.atMs >= before - 1000 && logged.atMs <= Date.now() + 1000);
+  check("logDrink stamps the current time", logged.atMs >= before - 1000 && logged.atMs <= after + 1000);
   check("logDrink updates the last-used ids", s.settings.lastVolumeId === v330 && s.settings.lastTypeId === coffee);
   check("logDrink sets lastDrinkAtMs", s.lastDrinkAtMs === logged.atMs);
   await rejects("logDrink rejects an unknown volume", "log_drink", { volumeId: 9999, typeId: water }, "volume");
@@ -212,7 +215,7 @@ try {
   check("deleteType archives a type that has logs", archivedCoffee?.archived === true, show(archivedCoffee));
   check("old logs keep pointing at the archived type", s.todayLogs.some((l) => l.typeId === coffee));
   check("preselected type falls back when its type is archived", s.settings.lastTypeId !== coffee && s.types.find((t) => t.id === s.settings.lastTypeId)?.archived === false);
-  await rejects("logDrink rejects an archived type", "log_drink", { volumeId: v250, typeId: coffee }, "type");
+  await rejects("logDrink rejects an archived type", "log_drink", { volumeId: s.volumes[0].id, typeId: coffee }, "type");
   s = await ok("add_log", { atMs: noon, ml: 150, typeId: coffee });
   check("addLog still accepts an archived type, so undo works", s.todayLogs.some((l) => l.typeId === coffee && l.atMs === noon));
   s = await ok("delete_type", { id: coffee });
@@ -246,7 +249,7 @@ try {
   check(
     "saveSettings saves reminders and keeps the goal",
     s.settings.dailyGoalMl === 2500 &&
-      show(s.settings.reminders) === show({ enabled: true, intervalMin: 90, quietAfterDrinkMin: 30, activeFrom: "07:30", activeTo: "23:00", pauseWhenGoalMet: false }),
+      sameFields(s.settings.reminders, { enabled: true, intervalMin: 90, quietAfterDrinkMin: 30, activeFrom: "07:30", activeTo: "23:00", pauseWhenGoalMet: false }),
     show(s.settings.reminders),
   );
   s = await ok("save_settings", { reminders: { enabled: false } });
