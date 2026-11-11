@@ -21,7 +21,7 @@ The sketch in `sketches/tauri-startup/` makes the real startup path. A Solid mai
 | After `cmd package compile -m speed` | 15 | 296 ms | 283 to 361 ms | 92 ms |
 
 - `am start -W` reported `LaunchState: COLD` for every launch, and no process existed before each one. All 30 runs reported Fully drawn.
-- `sketches/tauri-startup/screen.png` shows the seeded data on screen, so the timer stops after real content paints.
+- The screenshot taken during the run (on the `sketch/tauri-startup` branch) showed the seeded data on screen, so the timer stops after real content paints.
 - The first launch after install took 728 ms because it creates the database. Every launch after that is in the table.
 - The WebView limits the number. In one timed run, the first frame was at 97 ms and Chromium started loading at 90 ms. The renderer process was ready at 196 ms, and the content painted at 342 ms. Native Kotlin would skip that WebView work.
 - Not measured yet: the first launch after a reboot, and whether a white frame shows between the first frame and the content.
