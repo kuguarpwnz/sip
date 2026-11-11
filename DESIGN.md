@@ -199,9 +199,18 @@ plugins/tauri-plugin-sip/
 icons/icons.txt, icons/generate.mjs
 scripts/build-apk.sh     build, sign, verify
 scripts/measure-startup.sh
+scripts/emulator.sh      start or reuse the test emulator, print its serial
 ```
 
 There are no Android dependencies beyond what Tauri brings, plus `org.json` and `android.database.sqlite` from the platform. The Settings screen is code-split with Solid's `lazy()`, so its code never loads on the startup path.
+
+## Testing
+
+- `pnpm test` runs the UI tests against the fake host on the Mac.
+- `export ANDROID_SERIAL=$(scripts/emulator.sh)` starts the emulator, or reuses the running one, and prints its serial. `scripts/emulator.sh --window` shows its window and `--stop` shuts it down.
+- Install the debug APK on it and run `node scripts/smoke-api.mjs`.
+- The Kotlin unit tests run with `cd src-tauri/gen/android && ./gradlew :tauri-plugin-sip:testDebugUnitTest`.
+- Startup timing (`scripts/measure-startup.sh`) needs the real phone. Emulator numbers don't count against the 500 ms budget.
 
 ## Plugin API
 
