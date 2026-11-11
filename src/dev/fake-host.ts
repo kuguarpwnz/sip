@@ -44,14 +44,30 @@ const status: ReminderStatus = {
 };
 let permission: PermissionState = "granted";
 
-const t0 = Date.now();
-const logs: DrinkLog[] = [
+const seedLogs = (t0: number): DrinkLog[] => [
   { id: 1, atMs: t0 - 205 * MIN, ml: 330, typeId: 1 },
   { id: 2, atMs: t0 - 160 * MIN, ml: 150, typeId: 2 },
   { id: 3, atMs: t0 - 95 * MIN, ml: 500, typeId: 1 },
   { id: 4, atMs: t0 - 25 * MIN, ml: 250, typeId: 3 },
 ];
+const logs: DrinkLog[] = seedLogs(Date.now());
 let nextId = 100;
+
+const pristine = clone({ types, volumes, settings, status });
+const replace = <T>(target: T[], items: T[]) => target.splice(0, target.length, ...items);
+
+/** Puts every table back to the seed data, as of `now`, so tests start from the same state. */
+const reset = (now = Date.now()) => {
+  const p = clone(pristine);
+  replace(types, p.types);
+  replace(volumes, p.volumes);
+  replace(logs, seedLogs(now));
+  Object.assign(settings, p.settings);
+  Object.assign(status, p.status, { nextReminderAtMs: now + 40 * MIN });
+  permission = "granted";
+  nextId = 100;
+  listeners.clear();
+};
 
 const snapshot = (): Snapshot => {
   const today = logs.filter((l) => l.atMs >= midnight()).sort((a, b) => a.atMs - b.atMs || a.id - b.id);
@@ -208,6 +224,7 @@ Object.assign(window, {
       permission = "denied";
       Object.assign(status, { notificationsAllowed: false });
     },
+    reset,
     rollDay: () => logs.forEach((l) => (l.atMs -= DAY)),
   },
 });
