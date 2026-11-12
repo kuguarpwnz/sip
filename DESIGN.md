@@ -200,6 +200,7 @@ icons/icons.txt, icons/generate.mjs
 scripts/build-apk.sh     build, sign, verify
 scripts/measure-startup.sh
 scripts/emulator.sh      start or reuse the test emulator, print its serial
+scripts/release.sh       bump the version, build, tag, push, publish a GitHub release
 ```
 
 There are no Android dependencies beyond what Tauri brings, plus `org.json` and `android.database.sqlite` from the platform. The Settings screen is code-split with Solid's `lazy()`, so its code never loads on the startup path.
