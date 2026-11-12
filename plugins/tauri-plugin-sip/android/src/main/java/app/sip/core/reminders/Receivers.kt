@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import app.sip.core.data.Repo
+import app.sip.core.domain.Rejected
 import java.time.Instant
 import kotlin.concurrent.thread
 
@@ -53,10 +54,16 @@ class DrinkActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         async {
             val repo = Repo.get(context)
-            val logged = repo.logPreselected(Instant.now())
-            repo.notifyChanged()
-            Notifications.postLogged(context, logged)
-            Reconciler.reconcile(context)
+            try {
+                val logged = repo.logPreselected(Instant.now())
+                repo.notifyChanged()
+                Notifications.postLogged(context, logged)
+            } catch (e: Exception) {
+                Log.e(TAG, "logging from the notification failed", e)
+                Notifications.postLogFailed(context, (e as? Rejected)?.message)
+            } finally {
+                Reconciler.reconcile(context)
+            }
         }
     }
 }

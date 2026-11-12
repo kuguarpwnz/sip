@@ -16,7 +16,8 @@ internal object Notifications {
     const val CHANNEL_ID = "reminders"
     private const val REMINDER_ID = 1
     private const val TEST_ID = 2
-    private const val LOGGED_TIMEOUT_MS = 5_000L
+    private const val LOG_FAILED_ID = 3
+    private const val LOGGED_TIMEOUT_MS = 1_000L
 
     fun manager(context: Context): NotificationManager = context.getSystemService(NotificationManager::class.java)
 
@@ -64,6 +65,17 @@ internal object Notifications {
             .setTimeoutAfter(LOGGED_TIMEOUT_MS)
             .build()
         manager(context).notify(REMINDER_ID, notification)
+    }
+
+    /** Separate id, so `cancelReminder` and the next reminder never clear it. `reason` is a `Rejected` message, the only kind fit to show. */
+    fun postLogFailed(context: Context, reason: String?) {
+        ensureChannel(context)
+        val notification = base(context)
+            .setContentTitle("Couldn't log the drink")
+            .setContentText(reason ?: "Open Sip to log it")
+            .setCategory(Notification.CATEGORY_ERROR)
+            .build()
+        manager(context).notify(LOG_FAILED_ID, notification)
     }
 
     /** Leaves the "Logged" confirmation alone, since it shares the reminder's id. */
