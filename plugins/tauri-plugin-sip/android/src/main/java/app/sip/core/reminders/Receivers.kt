@@ -55,12 +55,15 @@ class DrinkActionReceiver : BroadcastReceiver() {
         async {
             val repo = Repo.get(context)
             try {
-                val logged = repo.logPreselected(Instant.now())
+                val logged = try {
+                    repo.logPreselected(Instant.now())
+                } catch (e: Exception) {
+                    Log.e(TAG, "logging from the notification failed", e)
+                    Notifications.postLogFailed(context, (e as? Rejected)?.message)
+                    return@async
+                }
                 repo.notifyChanged()
                 Notifications.postLogged(context, logged)
-            } catch (e: Exception) {
-                Log.e(TAG, "logging from the notification failed", e)
-                Notifications.postLogFailed(context, (e as? Rejected)?.message)
             } finally {
                 Reconciler.reconcile(context)
             }
