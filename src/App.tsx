@@ -86,7 +86,7 @@ export default function App() {
       <Show when={layerOf("picker")}>
         <PickerSheet />
       </Show>
-      <Show when={layerOf("logEditor")}>{(l) => <LogEditor logId={l().logId} />}</Show>
+      <Show when={layerOf("logEditor")}>{(l) => <LogEditor log={l().log} />}</Show>
 
       <Show when={toast()} keyed>
         {(t) => (
