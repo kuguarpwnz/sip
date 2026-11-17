@@ -1,10 +1,10 @@
-import { createEffect, createMemo, For, on, onMount, Show, type JSX } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import * as api from "./api";
 import type { DrinkLog } from "./api";
 import { ago, fmtMl, hhmm } from "./format";
 import { GEAR } from "./glyphs";
 import { Glyph, Icon } from "./Icon";
-import { PickerButton, pickFromList } from "./PickerList";
+import { PickerButton } from "./DrinkPicker";
 import { Settings } from "./settings-lazy";
 import {
   drink,
@@ -13,7 +13,6 @@ import {
   openLayer,
   permission,
   refreshReminderInfo,
-  selectedTypeId,
   selectedVolumeId,
   setPick,
   setPermission,
@@ -27,23 +26,6 @@ const s = () => snap()!;
 
 const LONG_PRESS_MS = 450;
 const MOVE_SLOP_PX = 10;
-
-const ChipRow = (p: { label: string; selected: number | undefined; children: JSX.Element }) => {
-  let el!: HTMLDivElement;
-  onMount(() => el.querySelector(".on")?.scrollIntoView({ inline: "center", block: "nearest" }));
-  createEffect(
-    on(
-      () => p.selected,
-      () => el.querySelector(".on")?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" }),
-      { defer: true },
-    ),
-  );
-  return (
-    <div class="chips" role="radiogroup" aria-label={p.label} ref={el}>
-      {p.children}
-    </div>
-  );
-};
 
 export default function Main() {
   const total = createMemo(() => s().todayLogs.reduce((sum, l) => sum + l.waterMl, 0));
@@ -194,45 +176,7 @@ export default function Main() {
       </ul>
 
       <div class="dock">
-        <Show
-          when={pickFromList()}
-          fallback={
-            <>
-              <ChipRow label="Drink type" selected={selectedTypeId()}>
-                <For each={s().types.filter((t) => !t.archived)}>
-                  {(t) => (
-                    <button
-                      role="radio"
-                      aria-checked={t.id === selectedTypeId()}
-                      classList={{ on: t.id === selectedTypeId() }}
-                      onClick={() => setPick((p) => ({ ...p, typeId: t.id }))}
-                    >
-                      <Icon name={t.icon} />
-                      {t.label}
-                    </button>
-                  )}
-                </For>
-              </ChipRow>
-              <ChipRow label="Volume" selected={selectedVolumeId()}>
-                <For each={s().volumes}>
-                  {(v) => (
-                    <button
-                      role="radio"
-                      aria-checked={v.id === selectedVolumeId()}
-                      classList={{ on: v.id === selectedVolumeId() }}
-                      onClick={() => setPick((p) => ({ ...p, volumeId: v.id }))}
-                    >
-                      <Icon name={v.icon} />
-                      {fmtMl(v.ml)} ml
-                    </button>
-                  )}
-                </For>
-              </ChipRow>
-            </>
-          }
-        >
-          <PickerButton />
-        </Show>
+        <PickerButton />
         <button class="drink" onClick={drink}>
           + DRINK {volume() ? `${fmtMl(volume()!.ml)} ml` : ""}
         </button>

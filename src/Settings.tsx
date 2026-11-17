@@ -6,7 +6,6 @@ import { BACK } from "./glyphs";
 import { Glyph } from "./Icon";
 import ItemSheet from "./ItemSheet";
 import { ListEditor } from "./ListEditor";
-import { pickFromList, setPickFromList } from "./PickerList";
 import {
   closeLayer,
   layerOf,
@@ -193,17 +192,6 @@ export default function Settings(p: { focus?: "reliability" }) {
                 label="Pause when the goal is met"
                 checked={r().pauseWhenGoalMet}
                 onCommit={(pauseWhenGoalMet) => patchReminders({ pauseWhenGoalMet })}
-              />
-            </div>
-          </section>
-
-          <section class="group">
-            <h2>Experiments</h2>
-            <div class="panel">
-              <ToggleRow
-                label="Pick drinks from a list"
-                checked={pickFromList()}
-                onCommit={async (on) => (setPickFromList(on), true)}
               />
             </div>
           </section>

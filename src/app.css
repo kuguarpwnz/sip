@@ -107,9 +107,7 @@ main > header .icon-btn { margin-right: -12px; }
 .logs .empty { color: var(--muted); padding: 16px 0; text-align: center; }
 
 .dock { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 var(--pb); }
-.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--pr)) 0 calc(-1 * var(--pl)); padding: 0 var(--pr) 0 var(--pl); }
-.chips::-webkit-scrollbar { display: none; }
-.chips.wrap { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips button {
   flex: none;
   height: 48px;

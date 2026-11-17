@@ -157,18 +157,15 @@ Today                                   [settings]
  14:05   [drop]  Water    250 ml
  12:40   [cup]   Coffee   150 ml      tap picks, hold edits
 --------------------------------------------------
- [Water] [Coffee] [Tea] [Juice] ...   drink types, scroll
- [150] [250] [330] [500] [750] ...    volumes with icons
+ [ Water    250 ml               > ]    opens the Choose drink sheet
  [            + DRINK  250 ml             ]
 ```
 
-- The type chips, volume chips, and **+ DRINK** button sit at the bottom, in thumb reach. The last-used type and volume are preselected.
+- The picker button and **+ DRINK** sit at the bottom, in thumb reach. The button shows the selected type and volume, preselected from the last drink. It opens a "Choose drink" sheet with the drink types and the volumes side by side. Tapping one selects it, and **+ DRINK** in the sheet logs the drink and closes it.
 - A tap on **+ DRINK** logs the drink, gives a haptic tick, animates the ring, and shows "Logged 250 ml Water. Undo" for four seconds.
 - A history row whose water differs from its amount shows a muted second line under the ml, "220 ml water".
-- A tap on a log row selects that drink's type and volume in the chip rows, ready for **+ DRINK**, so a repeat drink takes two taps. It logs nothing. If the type is archived or no volume matches the amount, that chip stays as it was and a toast says so.
+- A tap on a log row selects that drink's type and volume, ready for **+ DRINK**, so a repeat drink takes two taps. It logs nothing. If the type is archived or no volume matches the amount, that selection stays as it was and a toast says so.
 - A long press on a log row (450 ms, with a haptic tick) opens the edit sheet for that drink, for its volume, type, and time, so a drink you forgot to log can get the right time. The sheet includes **Delete**, which removes the drink and shows "Deleted 400 ml Tea. Undo".
-
-- **Experiment: pick from a list.** A setting under Settings, Experiments ("Pick drinks from a list", localStorage `sip.picker` = `list`) swaps the two chip rows for one button that opens a "Choose drink" sheet with a vertical list of types and one of volumes. `src/PickerList.tsx` owns the signal, the button and the sheet. To delete the experiment, delete that file and these lines. In `store.ts`, the `| { kind: "picker" }` layer variant. In `App.tsx`, the `PickerSheet` import and its `<Show when={layerOf("picker")}>` block. In `Main.tsx`, the `PickerButton, pickFromList` import and the `<Show when={pickFromList()} fallback=...>` wrapper (keep the chip rows). In `Settings.tsx`, the `pickFromList, setPickFromList` import and the Experiments section. In `app.css`, the `.picker-btn` and `.pick-*` rules. Delete `src/picker.test.tsx`. The shared `drink()` in `store.ts` stays. To keep the list instead, delete the two `ChipRow`s and `PickerList.tsx`'s toggle.
 
 ### Settings
 

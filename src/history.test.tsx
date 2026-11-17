@@ -39,9 +39,10 @@ const boot = async (prepare?: () => Promise<void>) => {
 };
 
 const row = (name: RegExp) => t.screen.getByRole("button", { name });
-const radio = (name: RegExp | string) => t.screen.getByRole("radio", { name });
-const selected = () =>
-  t.screen.getAllByRole("radio").filter((r) => r.getAttribute("aria-checked") === "true").map((r) => r.textContent?.trim());
+const selected = () => {
+  const label = t.screen.getByRole("button", { name: /^Choose drink:/ }).getAttribute("aria-label")!;
+  return label.replace("Choose drink: ", "").split(", ");
+};
 const dialogs = () => t.screen.queryAllByRole("dialog");
 const toastText = () => t.screen.queryByRole("status")?.textContent;
 
@@ -62,7 +63,6 @@ const TEA_400 = /Tea\s*400 ml/;
 
 beforeEach(() => {
   vi.useFakeTimers();
-  Element.prototype.scrollIntoView = vi.fn();
 });
 
 afterEach(() => {
@@ -77,8 +77,7 @@ describe("tapping a history row", () => {
 
     await tap(/Coffee\s*150 ml/);
 
-    expect(radio("Coffee").getAttribute("aria-checked")).toBe("true");
-    expect(radio(/^150 ml$/).getAttribute("aria-checked")).toBe("true");
+    expect(selected()).toEqual(["Coffee", "150 ml"]);
     expect(t.screen.getByRole("button", { name: "+ DRINK 150 ml" })).toBeTruthy();
     expect(toastText()).toBeUndefined();
   });
@@ -230,7 +229,7 @@ describe("+ DRINK", () => {
   });
 });
 
-describe("the default chips", () => {
+describe("the default drink", () => {
   it("follow the newest log, so editing it changes the next drink", async () => {
     await boot();
     expect(selected()).toEqual(["Water", "250 ml"]);

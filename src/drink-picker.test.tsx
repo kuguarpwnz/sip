@@ -2,7 +2,6 @@ import * as t from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import "./dev/fake-host";
-import { setPickFromList } from "./PickerList";
 import { dismissToast, setLayers, setPermission, setPick, setSnap, setStatus } from "./store";
 
 const LATENCY_MS = 25;
@@ -37,9 +36,6 @@ const loggedRows = () => t.screen.queryAllByRole("listitem").filter((li) => /\d 
 
 beforeEach(() => {
   vi.useFakeTimers();
-  Element.prototype.scrollIntoView = vi.fn();
-  localStorage.clear();
-  setPickFromList(false);
 });
 
 afterEach(() => {
@@ -47,31 +43,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("drink picker experiment", () => {
-  it("shows the chip rows by default", async () => {
-    await boot();
-
-    expect(t.screen.getAllByRole("radiogroup")).toHaveLength(2);
-    expect(t.screen.queryByRole("button", { name: /^Choose drink/ })).toBeNull();
-  });
-
-  it("replaces the chip rows with one button once the setting is on", async () => {
-    await boot();
-
-    await click(button("Settings"));
-    await vi.dynamicImportSettled();
-    await settle();
-    await click(t.screen.getByRole("switch", { name: "Pick drinks from a list" }));
-    expect(localStorage.getItem("sip.picker")).toBe("list");
-    await click(button("Back"));
-
-    expect(t.screen.queryAllByRole("radiogroup")).toHaveLength(0);
-    expect(pickerButton()).toBeTruthy();
-    expect(button("+ DRINK 250 ml")).toBeTruthy();
-  });
-
+describe("drink picker", () => {
   it("opens the sheet, and taps update the selection and the button", async () => {
-    setPickFromList(true);
     await boot();
 
     await click(pickerButton());
@@ -91,7 +64,6 @@ describe("drink picker experiment", () => {
   });
 
   it("logs from the sheet with the toast, then closes it", async () => {
-    setPickFromList(true);
     await boot();
     const before = loggedRows().length;
 
@@ -106,7 +78,6 @@ describe("drink picker experiment", () => {
   });
 
   it("closes on Back without logging", async () => {
-    setPickFromList(true);
     await boot();
     const before = loggedRows().length;
 
@@ -117,16 +88,5 @@ describe("drink picker experiment", () => {
 
     expect(sheet()).toBeNull();
     expect(loggedRows()).toHaveLength(before);
-  });
-
-  it("keeps the preference after a fresh module load", async () => {
-    setPickFromList(true);
-    vi.resetModules();
-    const picker = await import("./PickerList");
-    expect(picker.pickFromList()).toBe(true);
-
-    picker.setPickFromList(false);
-    vi.resetModules();
-    expect((await import("./PickerList")).pickFromList()).toBe(false);
   });
 });

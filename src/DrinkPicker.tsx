@@ -1,31 +1,10 @@
-import { createSignal, For, Show } from "solid-js";
+import { For, Show } from "solid-js";
 import { fmtMl } from "./format";
 import { Glyph, Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { closeLayer, drink, openLayer, selectedTypeId, selectedVolumeId, setPick, snap } from "./store";
 
-const KEY = "sip.picker";
 const CHEVRON = '<path d="M9 6l6 6l-6 6"/>';
-
-const read = () => {
-  try {
-    return localStorage.getItem(KEY) === "list";
-  } catch {
-    return false;
-  }
-};
-
-const [listMode, setListMode] = createSignal(read());
-
-export const pickFromList = listMode;
-
-export const setPickFromList = (on: boolean) => {
-  setListMode(on);
-  try {
-    if (on) localStorage.setItem(KEY, "list");
-    else localStorage.removeItem(KEY);
-  } catch {}
-};
 
 export const PickerButton = () => {
   const type = () => snap()!.types.find((t) => t.id === selectedTypeId());

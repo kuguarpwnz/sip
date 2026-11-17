@@ -40,7 +40,7 @@ export default function LogEditor(p: { logId: number }) {
                 <input type="time" value={time()} onInput={(e) => setTime(e.currentTarget.value)} />
               </Field>
             </div>
-            <div class="chips wrap" role="radiogroup" aria-label="Drink type">
+            <div class="chips" role="radiogroup" aria-label="Drink type">
               <For each={types()}>
                 {(t) => (
                   <button

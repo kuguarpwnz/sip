@@ -3,7 +3,7 @@ import * as api from "./api";
 import { sameDay } from "./format";
 import LogEditor from "./LogEditor";
 import Main from "./Main";
-import { PickerSheet } from "./PickerList";
+import { PickerSheet } from "./DrinkPicker";
 import { Settings } from "./settings-lazy";
 import {
   dismissToast,
