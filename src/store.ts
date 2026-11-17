@@ -3,6 +3,8 @@ import * as api from "./api";
 
 export type Layer =
   | { kind: "settings"; focus?: "reliability" }
+  | { kind: "history" }
+  | { kind: "historyDay"; startMs: number }
   | { kind: "logEditor"; log: api.DrinkLog }
   | { kind: "volumeEditor"; id: number | null }
   | { kind: "typeEditor"; id: number | null }

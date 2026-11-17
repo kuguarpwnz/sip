@@ -1,4 +1,5 @@
 import { For, onMount, Show, type JSX } from "solid-js";
+import "./screen.css";
 import "./settings.css";
 import * as api from "./api";
 import { whenLabel } from "./format";

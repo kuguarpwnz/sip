@@ -43,6 +43,7 @@ export interface Tiles {
 }
 
 export interface HistoryStats {
+  kind: PeriodKind;
   startMs: number;
   endMs: number;
   label: string;
@@ -71,6 +72,9 @@ const addDays = (dayStart: number, n: number) => {
   const d = new Date(dayStart);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime();
 };
+
+/** Local midnight that ends the day holding `ms`. */
+export const endOfDay = (ms: number) => addDays(startOfDay(ms), 1);
 
 const weekdayOf = (ms: number) => (new Date(ms).getDay() + 6) % 7;
 
@@ -199,6 +203,7 @@ export const historyStats = (logs: DrinkLog[], firstAtMs: number | null, goalMl:
     .sort((a, b) => b.share - a.share || a.typeId - b.typeId);
 
   return {
+    kind: period.kind,
     startMs,
     endMs,
     label: labelOf(period.kind, startMs, endMs, now),

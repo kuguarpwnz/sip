@@ -2,9 +2,10 @@ import { createMemo, For, Show } from "solid-js";
 import * as api from "./api";
 import type { DrinkLog } from "./api";
 import { ago, fmtMl, hhmm } from "./format";
-import { GEAR } from "./glyphs";
+import { CHART_BAR, GEAR } from "./glyphs";
 import { Glyph, Icon } from "./Icon";
 import { PickerButton } from "./DrinkPicker";
+import { History } from "./history-lazy";
 import { Settings } from "./settings-lazy";
 import {
   drink,
@@ -23,6 +24,10 @@ import {
 } from "./store";
 
 const s = () => snap()!;
+
+const openHistory = () => {
+  if (!layerOf("history")) openLayer({ kind: "history" });
+};
 
 const LONG_PRESS_MS = 450;
 const MOVE_SLOP_PX = 10;
@@ -92,17 +97,22 @@ export default function Main() {
     <main>
       <header>
         <h1>Today</h1>
-        <button
-          class="icon-btn"
-          aria-label="Settings"
-          onPointerDown={() => void Settings.preload()}
-          onClick={() => openLayer({ kind: "settings" })}
-        >
-          <Glyph path={GEAR} />
-        </button>
+        <div class="tools">
+          <button class="icon-btn" aria-label="History" onPointerDown={() => void History.preload()} onClick={openHistory}>
+            <Glyph path={CHART_BAR} />
+          </button>
+          <button
+            class="icon-btn"
+            aria-label="Settings"
+            onPointerDown={() => void Settings.preload()}
+            onClick={() => openLayer({ kind: "settings" })}
+          >
+            <Glyph path={GEAR} />
+          </button>
+        </div>
       </header>
 
-      <section class="summary">
+      <section class="summary" onPointerDown={() => void History.preload()} onClick={openHistory}>
         <div class="ring" role="img" aria-label={`${percent()} percent of the daily goal`}>
           <svg viewBox="0 0 120 120">
             <circle class="track" cx="60" cy="60" r="52" />

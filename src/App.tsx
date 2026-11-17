@@ -4,6 +4,7 @@ import { sameDay } from "./format";
 import LogEditor from "./LogEditor";
 import Main from "./Main";
 import { PickerSheet } from "./DrinkPicker";
+import { History } from "./history-lazy";
 import { Settings } from "./settings-lazy";
 import {
   dismissToast,
@@ -82,6 +83,9 @@ export default function App() {
 
       <Show when={layerOf("settings")}>
         {(l) => <Settings focus={l().focus} />}
+      </Show>
+      <Show when={layerOf("history")}>
+        <History />
       </Show>
       <Show when={layerOf("picker")}>
         <PickerSheet />

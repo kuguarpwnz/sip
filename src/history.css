@@ -1,0 +1,74 @@
+.history { --pale: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+.controls {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px var(--pr) 0 var(--pl);
+}
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 24px; background: var(--surface); }
+.seg button { flex: 1; height: 40px; border-radius: 20px; color: var(--muted); font-weight: 600; }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--bg); }
+.nav { display: flex; align-items: center; justify-content: space-between; }
+.nav .period { font-weight: 600; }
+.nav .icon-btn:disabled { opacity: 0.3; cursor: default; }
+
+.panel.pad { padding: 16px; }
+.group .panel.pad { padding: 16px 16px 12px; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 10px; border-radius: 14px; background: var(--surface); }
+.tile strong { font-size: 19px; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 13px; line-height: 1.25; }
+
+.plot { position: relative; height: 176px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.slot { position: relative; display: flex; align-items: flex-end; justify-content: center; height: 100%; padding: 0; }
+.slot:active { background: var(--surface-2); border-radius: 8px; }
+.bar { display: block; width: 100%; max-width: 34px; min-height: 3px; border-radius: 6px 6px 2px 2px; }
+.bar.met { background: var(--accent); }
+.bar.missed { background: var(--pale); }
+.bar.today { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
+.bar.nodata { height: 28px; border: 1px dashed var(--line); background: none; border-radius: 6px; }
+.bar.future { height: 0; min-height: 0; }
+.goal { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
+.goal span { position: absolute; right: 0; bottom: 2px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.axis { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; text-align: center; color: var(--muted); font-size: 12px; }
+.axis .now { color: var(--text); font-weight: 600; }
+.axis.year { gap: 4px; }
+.plot:has(+ .axis.year) { gap: 4px; }
+
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal .dow { text-align: center; color: var(--muted); font-size: 12px; padding-bottom: 2px; }
+.cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.cell.met { background: var(--accent); color: var(--bg); font-weight: 700; }
+.cell.missed { background: var(--pale); }
+.cell.today { border-color: var(--accent); font-weight: 700; }
+.cell.nodata { border: 1px dashed var(--line); color: var(--muted); opacity: 0.6; }
+.cell.future { color: var(--muted); opacity: 0.45; }
+
+.hours { height: 72px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; }
+.hours i { display: block; min-height: 2px; border-radius: 2px 2px 0 0; background: var(--accent); }
+.hours i.zero { background: var(--line); }
+.hours-axis { position: relative; height: 18px; margin-top: 6px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.hours-axis span { position: absolute; transform: translateX(-50%); }
+
+.none { color: var(--muted); text-align: center; padding: 4px 0 8px; }
+.mix { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.mix li { display: grid; grid-template-columns: 24px minmax(0, 80px) minmax(0, 1fr) 44px; align-items: center; gap: 10px; min-height: 40px; }
+.mix .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mix .track { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.mix .track i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.mix .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.day-total { margin-top: -8px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sheet .logs { flex: none; overflow: visible; }
