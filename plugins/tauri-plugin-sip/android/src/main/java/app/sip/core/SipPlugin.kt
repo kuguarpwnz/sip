@@ -49,6 +49,12 @@ class SipPlugin(private val activity: Activity) : Plugin(activity) {
     fun snapshot(invoke: Invoke) = read(invoke) { Json.snapshot(repo.snapshot()) }
 
     @Command
+    fun logsBetween(invoke: Invoke) = read(invoke) {
+        val (from, to) = Json.parseRange(invoke.getArgs())
+        Json.logRange(repo.logsBetween(from, to))
+    }
+
+    @Command
     fun logDrink(invoke: Invoke) = write(invoke) {
         val (volumeId, typeId) = Json.parseLogDrink(invoke.getArgs())
         Json.snapshot(repo.logDrink(volumeId, typeId).snapshot)

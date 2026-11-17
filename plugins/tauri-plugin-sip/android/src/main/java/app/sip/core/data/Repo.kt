@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import app.sip.core.domain.DrinkLog
 import app.sip.core.domain.DrinkType
 import app.sip.core.domain.LogInput
+import app.sip.core.domain.LogRange
 import app.sip.core.domain.Logged
 import app.sip.core.domain.Preset
 import app.sip.core.domain.ReminderPlanner
@@ -66,6 +67,21 @@ class Repo private constructor(context: Context) {
     @Synchronized
     fun snapshot(now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()): Snapshot =
         readSnapshot(helper.writableDatabase, now, zone)
+
+    /** Logs with `from <= at < to`, oldest first, plus the time of the first log ever. */
+    @Synchronized
+    fun logsBetween(from: Instant, to: Instant): LogRange {
+        val db = helper.writableDatabase
+        val logs = ArrayList<DrinkLog>()
+        db.rawQuery(
+            "$LOG_SELECT WHERE at_ms >= ? AND at_ms < ? ORDER BY at_ms ASC, id ASC",
+            arrayOf(from.toEpochMilli().toString(), to.toEpochMilli().toString()),
+        ).use { while (it.moveToNext()) logs.add(readLog(it)) }
+        val first = db.rawQuery("SELECT MIN(at_ms) FROM drink_log", null).use {
+            if (it.moveToFirst() && !it.isNull(0)) Instant.ofEpochMilli(it.getLong(0)) else null
+        }
+        return LogRange(logs, first)
+    }
 
     @Synchronized
     fun logDrink(volumeId: Long, typeId: Long, at: Instant = Instant.now()): Logged = tx { db ->

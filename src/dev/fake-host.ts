@@ -1,6 +1,6 @@
 // Development only: stands in for the Tauri host so the UI can run in a desktop browser.
 // index.tsx imports it under `import.meta.env.DEV`, so it never reaches the release bundle.
-import type { DrinkLog as LoggedDrink, DrinkType, PermissionState, ReminderStatus, Settings, Snapshot, Volume } from "../api";
+import type { DrinkLog as LoggedDrink, DrinkType, LogRange, PermissionState, ReminderStatus, Settings, Snapshot, Volume } from "../api";
 
 const MIN = 60_000;
 const DAY = 86_400_000;
@@ -93,10 +93,19 @@ const snapshot = (): Snapshot => {
     settings: { ...settings, ...preset() },
     types: [...types].sort((a, b) => a.position - b.position),
     volumes: [...volumes].sort((a, b) => a.position - b.position),
-    todayLogs: today.map(({ waterPct, ...l }) => ({ ...l, waterMl: Math.round((l.ml * waterPct) / 100) })),
+    todayLogs: today.map(withWater),
     dayStartMs: midnight(),
     lastDrinkAtMs: newestLog()?.atMs ?? null,
   });
+};
+
+const withWater = ({ waterPct, ...l }: DrinkLog): LoggedDrink => ({ ...l, waterMl: Math.round((l.ml * waterPct) / 100) });
+
+const logsBetween = (fromMs: unknown, toMs: unknown): LogRange => {
+  if (!Number.isInteger(fromMs) || !Number.isInteger(toMs)) fail("fromMs and toMs must be whole numbers");
+  if ((fromMs as number) >= (toMs as number)) fail("fromMs must be before toMs");
+  const inRange = logs.filter((l) => l.atMs >= (fromMs as number) && l.atMs < (toMs as number)).sort((a, b) => a.atMs - b.atMs || a.id - b.id);
+  return clone({ logs: inRange.map(withWater), firstAtMs: logs.length ? Math.min(...logs.map((l) => l.atMs)) : null });
 };
 
 const fail = (msg: string): never => {
@@ -117,6 +126,7 @@ const reorder = <T extends { id: number; position: number }>(list: T[], ids: num
 type Args = Record<string, any>;
 const commands: Record<string, (a: Args) => unknown> = {
   snapshot: () => snapshot(),
+  logs_between: ({ fromMs, toMs }) => logsBetween(fromMs, toMs),
   log_drink: ({ volumeId, typeId }) => {
     const v = volumes.find((x) => x.id === volumeId) ?? fail("Unknown volume");
     logs.push({ id: nextId++, atMs: Date.now(), ml: v.ml, typeId, waterPct: pctOf(typeId) });

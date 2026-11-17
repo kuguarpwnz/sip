@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-logs-between"
+description = "Enables the logs_between command without any pre-configured scope."
+commands.allow = ["logs_between"]
+
+[[permission]]
+identifier = "deny-logs-between"
+description = "Denies the logs_between command without any pre-configured scope."
+commands.deny = ["logs_between"]

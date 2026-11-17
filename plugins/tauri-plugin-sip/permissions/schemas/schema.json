@@ -391,6 +391,18 @@
           "markdownDescription": "Denies the log_drink command without any pre-configured scope."
         },
         {
+          "description": "Enables the logs_between command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-logs-between",
+          "markdownDescription": "Enables the logs_between command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the logs_between command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-logs-between",
+          "markdownDescription": "Denies the logs_between command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_system_settings command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-system-settings",
@@ -547,10 +559,10 @@
           "markdownDescription": "Denies the update_log command without any pre-configured scope."
         },
         {
-          "description": "Every Sip plugin command\n#### This default permission set includes:\n\n- `allow-snapshot`\n- `allow-log-drink`\n- `allow-add-log`\n- `allow-update-log`\n- `allow-delete-log`\n- `allow-save-volume`\n- `allow-delete-volume`\n- `allow-reorder-volumes`\n- `allow-save-type`\n- `allow-delete-type`\n- `allow-reorder-types`\n- `allow-save-settings`\n- `allow-reminder-status`\n- `allow-open-system-settings`\n- `allow-send-test-reminder`\n- `allow-haptic`\n- `allow-fully-drawn`\n- `allow-check-permissions`\n- `allow-request-permissions`\n- `allow-register-listener`\n- `allow-remove-listener`",
+          "description": "Every Sip plugin command\n#### This default permission set includes:\n\n- `allow-snapshot`\n- `allow-logs-between`\n- `allow-log-drink`\n- `allow-add-log`\n- `allow-update-log`\n- `allow-delete-log`\n- `allow-save-volume`\n- `allow-delete-volume`\n- `allow-reorder-volumes`\n- `allow-save-type`\n- `allow-delete-type`\n- `allow-reorder-types`\n- `allow-save-settings`\n- `allow-reminder-status`\n- `allow-open-system-settings`\n- `allow-send-test-reminder`\n- `allow-haptic`\n- `allow-fully-drawn`\n- `allow-check-permissions`\n- `allow-request-permissions`\n- `allow-register-listener`\n- `allow-remove-listener`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Every Sip plugin command\n#### This default permission set includes:\n\n- `allow-snapshot`\n- `allow-log-drink`\n- `allow-add-log`\n- `allow-update-log`\n- `allow-delete-log`\n- `allow-save-volume`\n- `allow-delete-volume`\n- `allow-reorder-volumes`\n- `allow-save-type`\n- `allow-delete-type`\n- `allow-reorder-types`\n- `allow-save-settings`\n- `allow-reminder-status`\n- `allow-open-system-settings`\n- `allow-send-test-reminder`\n- `allow-haptic`\n- `allow-fully-drawn`\n- `allow-check-permissions`\n- `allow-request-permissions`\n- `allow-register-listener`\n- `allow-remove-listener`"
+          "markdownDescription": "Every Sip plugin command\n#### This default permission set includes:\n\n- `allow-snapshot`\n- `allow-logs-between`\n- `allow-log-drink`\n- `allow-add-log`\n- `allow-update-log`\n- `allow-delete-log`\n- `allow-save-volume`\n- `allow-delete-volume`\n- `allow-reorder-volumes`\n- `allow-save-type`\n- `allow-delete-type`\n- `allow-reorder-types`\n- `allow-save-settings`\n- `allow-reminder-status`\n- `allow-open-system-settings`\n- `allow-send-test-reminder`\n- `allow-haptic`\n- `allow-fully-drawn`\n- `allow-check-permissions`\n- `allow-request-permissions`\n- `allow-register-listener`\n- `allow-remove-listener`"
         }
       ]
     }

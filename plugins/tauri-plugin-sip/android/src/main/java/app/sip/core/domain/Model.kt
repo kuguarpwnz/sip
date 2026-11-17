@@ -63,6 +63,9 @@ data class ReminderStatus(
 
 data class Logged(val log: DrinkLog, val type: DrinkType, val snapshot: Snapshot)
 
+/** `firstAt` is the earliest log on any day, whatever the range. */
+data class LogRange(val logs: List<DrinkLog>, val firstAt: Instant?)
+
 data class LogInput(val id: Long?, val at: Instant, val ml: Int, val typeId: Long)
 data class VolumeInput(val id: Long?, val ml: Int, val label: String, val icon: AppIcon)
 data class TypeInput(val id: Long?, val label: String, val icon: AppIcon, val waterPct: Int)

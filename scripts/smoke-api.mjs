@@ -119,6 +119,8 @@ try {
     );
     check("seed: with no logs the preset is the first volume and the first type", s.settings.lastVolumeId === volumeId(s, 150) && s.settings.lastTypeId === typeId(s, "Water"), show(s.settings));
     check("seed: no logs yet", s.todayLogs.length === 0 && s.lastDrinkAtMs === null);
+    const empty = await ok("logs_between", { fromMs: 0, toMs: Date.now() + 86400_000 });
+    check("logsBetween with no logs is empty and has no firstAtMs", empty.logs.length === 0 && empty.firstAtMs === null, show(empty));
   }
   const midnight = await evaluate("(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })()");
   check("dayStartMs is local midnight", s.dayStartMs === midnight, `${s.dayStartMs} vs ${midnight}`);
@@ -159,6 +161,32 @@ try {
   s = await ok("add_log", { atMs: midnight - 3600_000, ml: 100, typeId: water });
   check("a log from yesterday is not in todayLogs", !s.todayLogs.some((l) => l.ml === 100));
   check("lastDrinkAtMs spans days", s.lastDrinkAtMs === lastDrink);
+  const DAY = 86400_000;
+  const base = midnight - 40 * DAY;
+  for (const [atMs, ml, type] of [[base + 2000, 112, water], [base + 2000, 113, water], [base + 3000, 200, coffee], [base + 1000, 111, water]]) {
+    await ok("add_log", { atMs, ml, typeId: type });
+  }
+  const mls = (r) => r.logs.map((l) => l.ml);
+  let range = await ok("logs_between", { fromMs: base, toMs: base + 3000 });
+  check("logsBetween orders by time, then id, whatever the insert order", show(mls(range)) === show([111, 112, 113]), show(range));
+  check("logsBetween leaves out a log exactly at toMs", !mls(range).includes(200));
+  check("logsBetween has firstAtMs of the first log ever", range.firstAtMs === base + 1000, show(range.firstAtMs));
+  range = await ok("logs_between", { fromMs: base + 1000, toMs: base + 3001 });
+  check("logsBetween includes a log exactly at fromMs and at toMs - 1", show(mls(range)) === show([111, 112, 113, 200]), show(range));
+  range = await ok("logs_between", { fromMs: base + 1001, toMs: base + 3001 });
+  check("logsBetween excludes a log just before fromMs, yet firstAtMs still names it", show(mls(range)) === show([112, 113, 200]) && range.firstAtMs === base + 1000, show(range));
+  check("logsBetween returns the DrinkLog shape with waterMl", sameFields(Object.keys(range.logs[2]).sort(), ["atMs", "id", "ml", "typeId", "waterMl"]) && range.logs[2].waterMl === 198 && range.logs[2].typeId === coffee, show(range.logs[2]));
+  range = await ok("logs_between", { fromMs: base + 4000, toMs: base + 5000 });
+  check("logsBetween of an empty range has no logs but a firstAtMs", range.logs.length === 0 && range.firstAtMs === base + 1000, show(range));
+  range = await ok("logs_between", { fromMs: 0, toMs: midnight + DAY });
+  check("logsBetween from 0 to the end of today holds every log, today's too", mls(range).slice(0, 4).join() === "111,112,113,200" && range.logs.some((l) => l.id === logged.id) && range.logs.every((l, i, a) => i === 0 || a[i - 1].atMs <= l.atMs), show(mls(range)));
+  await rejects("logsBetween rejects fromMs equal to toMs", "logs_between", { fromMs: 5, toMs: 5 }, "before");
+  await rejects("logsBetween rejects fromMs after toMs", "logs_between", { fromMs: 6, toMs: 5 }, "before");
+  await rejects("logsBetween rejects a missing toMs", "logs_between", { fromMs: 5 }, "toMs");
+  await rejects("logsBetween rejects a string bound", "logs_between", { fromMs: "0", toMs: 5 }, "whole number");
+  for (const l of range.logs.filter((x) => x.atMs < midnight - DAY)) await ok("delete_log", { id: l.id });
+  range = await ok("logs_between", { fromMs: base, toMs: base + 5000 });
+  check("the history logs are cleaned up", range.logs.length === 0);
   await rejects("addLog rejects 9 ml", "add_log", { atMs: noon, ml: 9, typeId: water }, "ml");
   await rejects("addLog rejects 3001 ml", "add_log", { atMs: noon, ml: 3001, typeId: water }, "ml");
   await rejects("addLog rejects an unknown type", "add_log", { atMs: noon, ml: 200, typeId: 9999 }, "type");

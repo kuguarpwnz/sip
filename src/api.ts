@@ -21,6 +21,8 @@ export interface Snapshot {
   settings: Settings; types: DrinkType[]; volumes: Volume[];
   todayLogs: DrinkLog[]; dayStartMs: number; lastDrinkAtMs: number | null;
 }
+/** `firstAtMs` is the earliest log on any day, whatever the range. `logs` run oldest first. */
+export interface LogRange { logs: DrinkLog[]; firstAtMs: number | null }
 export interface ReminderStatus {
   notificationsAllowed: boolean; channelEnabled: boolean; exactAlarmsAllowed: boolean;
   batteryUnrestricted: boolean; nextReminderAtMs: number | null; missedReminderAtMs: number | null;
@@ -43,6 +45,8 @@ const call = async <T>(command: string, args?: Record<string, unknown>): Promise
 };
 
 export const snapshot = () => call<Snapshot>("snapshot");
+/** Logs with `fromMs <= atMs < toMs`. Rejects when `fromMs >= toMs`. */
+export const logsBetween = (fromMs: number, toMs: number) => call<LogRange>("logs_between", { fromMs, toMs });
 export const logDrink = (volumeId: number, typeId: number) => call<Snapshot>("log_drink", { volumeId, typeId });
 export const addLog = (input: LogInput) => call<Snapshot>("add_log", { ...input });
 export const updateLog = (input: LogInput & { id: number }) => call<Snapshot>("update_log", { ...input });

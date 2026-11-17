@@ -3,6 +3,7 @@
 // feeds the ACL permission generator.
 const COMMANDS: &[&str] = &[
     "snapshot",
+    "logs_between",
     "log_drink",
     "add_log",
     "update_log",

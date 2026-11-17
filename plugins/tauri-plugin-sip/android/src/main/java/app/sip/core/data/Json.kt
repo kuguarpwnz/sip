@@ -3,6 +3,7 @@ package app.sip.core.data
 import app.sip.core.domain.AppIcon
 import app.sip.core.domain.DrinkLog
 import app.sip.core.domain.LogInput
+import app.sip.core.domain.LogRange
 import app.sip.core.domain.ReminderPatch
 import app.sip.core.domain.ReminderSettings
 import app.sip.core.domain.ReminderStatus
@@ -66,12 +67,23 @@ object Json {
         .put("activeTo", formatTime(r.activeTo))
         .put("pauseWhenGoalMet", r.pauseWhenGoalMet)
 
+    fun logRange(r: LogRange): JSONObject = JSONObject()
+        .put("logs", JSONArray(r.logs.map(::log)))
+        .put("firstAtMs", orNull(r.firstAt?.toEpochMilli()))
+
     private fun log(l: DrinkLog) = JSONObject()
         .put("id", l.id).put("atMs", l.at.toEpochMilli()).put("ml", l.ml).put("typeId", l.typeId).put("waterMl", l.waterMl)
 
     private fun orNull(value: Any?): Any = value ?: JSONObject.NULL
 
     fun parseLogDrink(args: JSONObject): Pair<Long, Long> = long(args, "volumeId") to long(args, "typeId")
+
+    fun parseRange(args: JSONObject): Pair<Instant, Instant> {
+        val from = long(args, "fromMs")
+        val to = long(args, "toMs")
+        if (from >= to) throw Rejected("fromMs must be before toMs")
+        return Instant.ofEpochMilli(from) to Instant.ofEpochMilli(to)
+    }
 
     fun parseId(args: JSONObject): Long = long(args, "id")
 

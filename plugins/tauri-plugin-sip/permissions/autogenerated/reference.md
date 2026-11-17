@@ -5,6 +5,7 @@ Every Sip plugin command
 #### This default permission set includes the following:
 
 - `allow-snapshot`
+- `allow-logs-between`
 - `allow-log-drink`
 - `allow-add-log`
 - `allow-update-log`
@@ -239,6 +240,32 @@ Enables the log_drink command without any pre-configured scope.
 <td>
 
 Denies the log_drink command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`sip:allow-logs-between`
+
+</td>
+<td>
+
+Enables the logs_between command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`sip:deny-logs-between`
+
+</td>
+<td>
+
+Denies the logs_between command without any pre-configured scope.
 
 </td>
 </tr>

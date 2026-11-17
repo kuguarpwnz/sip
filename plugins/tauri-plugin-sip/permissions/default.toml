@@ -2,6 +2,7 @@
 description = "Every Sip plugin command"
 permissions = [
   "allow-snapshot",
+  "allow-logs-between",
   "allow-log-drink",
   "allow-add-log",
   "allow-update-log",
