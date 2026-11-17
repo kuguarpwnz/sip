@@ -13,14 +13,12 @@ object Kv {
     const val ACTIVE_FROM = "active_from"
     const val ACTIVE_TO = "active_to"
     const val PAUSE_WHEN_GOAL_MET = "pause_when_goal_met"
-    const val LAST_VOLUME_ID = "last_volume_id"
-    const val LAST_TYPE_ID = "last_type_id"
     const val SCHEDULED_FOR_MS = "scheduled_for_ms"
     const val LAST_FIRED_MS = "last_fired_ms"
     const val MISSED_REMINDER_MS = "missed_reminder_ms"
 }
 
-class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 1) {
+class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 2) {
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
     }
@@ -43,7 +41,11 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 1) {
         seed(db)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            db.execSQL("DELETE FROM kv WHERE key IN ('last_volume_id', 'last_type_id')")
+        }
+    }
 
     private fun seed(db: SQLiteDatabase) {
         listOf("droplet" to "Water", "coffee" to "Coffee", "teapot" to "Tea", "lemon-2" to "Juice", "milk" to "Milk")
@@ -66,8 +68,6 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 1) {
             Kv.ACTIVE_FROM to "08:00",
             Kv.ACTIVE_TO to "22:00",
             Kv.PAUSE_WHEN_GOAL_MET to "1",
-            Kv.LAST_VOLUME_ID to "2",
-            Kv.LAST_TYPE_ID to "1",
         ).forEach { (k, v) ->
             db.insertOrThrow("kv", null, ContentValues().apply { put("key", k); put("value", v) })
         }

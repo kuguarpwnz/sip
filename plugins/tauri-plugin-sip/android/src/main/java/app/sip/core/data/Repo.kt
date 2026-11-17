@@ -7,6 +7,7 @@ import app.sip.core.domain.DrinkLog
 import app.sip.core.domain.DrinkType
 import app.sip.core.domain.LogInput
 import app.sip.core.domain.Logged
+import app.sip.core.domain.Preset
 import app.sip.core.domain.ReminderPlanner
 import app.sip.core.domain.ReminderSettings
 import app.sip.core.domain.Rejected
@@ -67,18 +68,17 @@ class Repo private constructor(context: Context) {
         val type = findType(db, typeId) ?: throw Rejected("Drink type not found")
         if (type.archived) throw Rejected("Drink type was deleted")
         val log = insertLog(db, at, volume.ml, type.id)
-        setKv(db, Kv.LAST_VOLUME_ID, volume.id.toString())
-        setKv(db, Kv.LAST_TYPE_ID, type.id.toString())
         Logged(log, type, readSnapshot(db, at))
     }
 
-    /** What the notification button logs: the last used volume and type, or the first of each. */
+    /** What the notification button logs: the newest drink again, or the first volume and type when there is none. */
     @Synchronized
-    fun logPreselected(at: Instant = Instant.now()): Logged {
-        val s = snapshot(at)
-        val volumeId = s.settings.lastVolumeId ?: throw Rejected("No volume")
-        val typeId = s.settings.lastTypeId ?: throw Rejected("No drink type")
-        return logDrink(volumeId, typeId, at)
+    fun logPreselected(at: Instant = Instant.now()): Logged = tx { db ->
+        val before = readSnapshot(db, at)
+        val ml = before.preset.ml ?: throw Rejected("No volume")
+        val type = before.types.firstOrNull { it.id == before.preset.typeId } ?: throw Rejected("No drink type")
+        val log = insertLog(db, at, ml, type.id)
+        Logged(log, type, readSnapshot(db, at))
     }
 
     @Synchronized
@@ -179,7 +179,7 @@ class Repo private constructor(context: Context) {
 
     @Synchronized
     fun saveSettings(patch: SettingsPatch): Snapshot = tx { db ->
-        val current = readSettings(readKv(db), readVolumes(db), readTypes(db))
+        val current = readSettings(readKv(db), Preset.derive(null, emptyList(), emptyList()))
         val r = current.reminders
         val p = patch.reminders
         val merged = ReminderSettings(
@@ -270,13 +270,16 @@ class Repo private constructor(context: Context) {
         ).use {
             while (it.moveToNext()) logs.add(DrinkLog(it.getLong(0), Instant.ofEpochMilli(it.getLong(1)), it.getInt(2), it.getLong(3)))
         }
-        val lastDrink = db.rawQuery("SELECT MAX(at_ms) FROM drink_log", null).use {
-            if (it.moveToFirst() && !it.isNull(0)) Instant.ofEpochMilli(it.getLong(0)) else null
+        val newest = db.rawQuery(
+            "SELECT id, at_ms, ml, type_id FROM drink_log ORDER BY at_ms DESC, id DESC LIMIT 1", null,
+        ).use {
+            if (it.moveToFirst()) DrinkLog(it.getLong(0), Instant.ofEpochMilli(it.getLong(1)), it.getInt(2), it.getLong(3)) else null
         }
-        return Snapshot(readSettings(readKv(db), volumes, types), types, volumes, logs, dayStart, lastDrink)
+        val preset = Preset.derive(newest, types, volumes)
+        return Snapshot(readSettings(readKv(db), preset), types, volumes, logs, dayStart, newest, preset)
     }
 
-    private fun readSettings(kv: Map<String, String>, volumes: List<Volume>, types: List<DrinkType>): Settings {
+    private fun readSettings(kv: Map<String, String>, preset: Preset): Settings {
         val reminders = ReminderSettings(
             enabled = kv[Kv.REMINDERS_ENABLED] != "0",
             intervalMinutes = kv[Kv.INTERVAL_MIN]?.toIntOrNull() ?: 60,
@@ -285,13 +288,11 @@ class Repo private constructor(context: Context) {
             activeTo = parseTime(kv[Kv.ACTIVE_TO], LocalTime.of(22, 0)),
             pauseWhenGoalMet = kv[Kv.PAUSE_WHEN_GOAL_MET] != "0",
         )
-        val lastVolume = kv[Kv.LAST_VOLUME_ID]?.toLongOrNull()
-        val lastType = kv[Kv.LAST_TYPE_ID]?.toLongOrNull()
         return Settings(
             dailyGoalMl = kv[Kv.DAILY_GOAL_ML]?.toIntOrNull() ?: 2000,
             reminders = reminders,
-            lastVolumeId = (volumes.firstOrNull { it.id == lastVolume } ?: volumes.firstOrNull())?.id,
-            lastTypeId = (types.firstOrNull { it.id == lastType && !it.archived } ?: types.firstOrNull { !it.archived })?.id,
+            lastVolumeId = preset.volumeId,
+            lastTypeId = preset.typeId,
         )
     }
 

@@ -30,16 +30,16 @@ internal object Notifications {
     fun postReminder(context: Context, snapshot: Snapshot) {
         ensureChannel(context)
         val settings = snapshot.settings
-        val volume = snapshot.volumes.firstOrNull { it.id == settings.lastVolumeId }
-        val type = snapshot.types.firstOrNull { it.id == settings.lastTypeId }
+        val ml = snapshot.preset.ml
+        val type = snapshot.types.firstOrNull { it.id == snapshot.preset.typeId }
         val builder = base(context)
             .setContentTitle("Time for a drink")
             .setContentText(ReminderText.progress(snapshot.todayMl, settings.dailyGoalMl))
             .setCategory(Notification.CATEGORY_REMINDER)
-        if (volume != null && type != null) {
+        if (ml != null && type != null) {
             val log = Intent(context, DrinkActionReceiver::class.java)
             val action = PendingIntent.getBroadcast(context, 0, log, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            builder.addAction(Notification.Action.Builder(Icon.createWithResource(context, R.drawable.ic_stat_drop), "+${volume.ml} ml ${type.label}", action).build())
+            builder.addAction(Notification.Action.Builder(Icon.createWithResource(context, R.drawable.ic_stat_drop), "+$ml ml ${type.label}", action).build())
         }
         manager(context).notify(REMINDER_ID, builder.build())
     }

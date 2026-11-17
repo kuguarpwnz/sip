@@ -65,13 +65,15 @@ data class Snapshot(
 	val volumes: List<Volume>,
 	val todayLogs: List<DrinkLog>,
 	val dayStart: Instant,
-	val lastDrinkAt: Instant?,
+	val newestLog: DrinkLog?,   // latest at_ms on any day, highest id on a tie
+	val preset: Preset,         // derived from newestLog, see Rules
 ) {
 	val todayMl: Int get() = todayLogs.sumOf { it.ml }
+	val lastDrinkAt: Instant? get() = newestLog?.at
 }
 ```
 
-### SQLite schema, version 1
+### SQLite schema, version 2
 
 The app uses plain `SQLiteOpenHelper`, with no Room and no annotation processing. Opening the database and reading a snapshot is five small queries over a few dozen rows.
 
@@ -95,7 +97,7 @@ CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 - A log copies `ml` from the volume. Editing or deleting a volume never rewrites history.
 - A log points at its drink type by id. Deleting a type archives it, so pickers hide it and old logs still show its icon.
 - At least one volume and one active drink type always exist. The repository refuses to delete the last one.
-- Each log writes `lastVolumeId` and `lastTypeId`. The main screen preselects them on the next open. If the volume or type is gone, it falls back to the first one by position.
+- Nothing stores the last-used drink. The preset is derived on every read from the newest log, the one with the latest `at_ms` on any day, with the highest id winning a tie. `lastTypeId` is that log's type if it is active, else the first active type by position. `lastVolumeId` is the first volume by position whose `ml` equals that log's `ml`, else the first volume. With no logs, the preset is the first volume and the first active type. Editing, adding or deleting a log therefore moves it. `domain/Preset.kt` holds the rule.
 - A day runs from local midnight to local midnight.
 - Icons are stored as their string key. An unknown key parses to `DROPLET` when the row is read, so a bad row never crashes the UI.
 
@@ -105,7 +107,7 @@ Seed data on first run:
 - Volumes: 150 ml, 250 ml, 330 ml, 500 ml, 750 ml.
 - Goal: 2000 ml. Reminders: every 60 minutes from 08:00 to 22:00, quiet for 60 minutes after a drink, paused once the goal is met.
 
-`lastDrinkAt` is the latest log of any day, so a drink at 23:50 still counts for the quiet window after midnight.
+`lastDrinkAt` is the time of that same newest log, so a drink at 23:50 still counts for the quiet window after midnight.
 
 ## Reminders that keep firing
 
@@ -133,7 +135,7 @@ These facts come from the official Android docs, read on 2026-11-10.
 	- The planner looks at today and the next two days. The quiet window is at most four hours, so one of them always has a slot.
 	- A slot missed while the phone was off is skipped. The missed-reminder card still reports it until the next reminder fires.
 	- v1 requires `activeFrom` to be before `activeTo`. The settings screen validates it.
-5. The notification channel is "Reminders" at `IMPORTANCE_HIGH`. The text reads "1 200 of 2 000 ml (60%)". The action button logs the preselected volume and type, then shows "Logged 250 ml, 1 450 ml (72%)" for one second. If logging fails, it posts "Couldn't log the drink" instead. A tap on the notification opens the app. Logging a drink in the app removes any visible reminder.
+5. The notification channel is "Reminders" at `IMPORTANCE_HIGH`. The text reads "1 200 of 2 000 ml (60%)". The action button repeats the newest drink exactly: its `ml` and type, labelled "+{ml} ml {type}". With no logs it uses the first volume and the first active type. It then shows "Logged 250 ml, 1 450 ml (72%)" for one second. If logging fails, it posts "Couldn't log the drink" instead. A tap on the notification opens the app. Logging a drink in the app removes any visible reminder.
 6. Missed-reminder check. `AlarmReceiver` writes `last_fired_ms`. On app start, if `scheduled_for_ms` is more than 10 minutes in the past and `last_fired_ms` is older than it, the main screen shows "The 14:00 reminder didn't arrive" with a **Fix** button.
 7. Reliability checklist in settings. It shows four checks, each with a button that opens the right system screen. The checks are notifications allowed (`POST_NOTIFICATIONS` and the channel not muted), exact alarms allowed (`canScheduleExactAlarms()`), and battery usage set to Unrestricted (`isIgnoringBatteryOptimizations()`, requested with `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`). A **Send test reminder in 1 minute** button runs the whole path once.
 
@@ -229,7 +231,7 @@ interface ReminderSettings {
 	activeFrom: string; activeTo: string; // "HH:mm"
 	pauseWhenGoalMet: boolean;
 }
-interface Settings { dailyGoalMl: number; reminders: ReminderSettings; lastVolumeId: number | null; lastTypeId: number | null }
+interface Settings { dailyGoalMl: number; reminders: ReminderSettings; lastVolumeId: number | null; lastTypeId: number | null } // last* are derived, see Rules
 interface Snapshot {
 	settings: Settings; types: DrinkType[]; volumes: Volume[];
 	todayLogs: DrinkLog[]; dayStartMs: number; lastDrinkAtMs: number | null;
@@ -245,7 +247,7 @@ interface ReminderStatus {
 | Command | Arguments | Returns |
 | --- | --- | --- |
 | `snapshot` | none | `Snapshot` |
-| `logDrink` | `volumeId`, `typeId` | `Snapshot`. Copies `ml` from the volume and sets `lastVolumeId` and `lastTypeId`. |
+| `logDrink` | `volumeId`, `typeId` | `Snapshot`. Copies `ml` from the volume. |
 | `addLog` | `atMs`, `ml`, `typeId` | `Snapshot`. Undo for a deleted log. |
 | `updateLog` | `id`, `atMs`, `ml`, `typeId` | `Snapshot` |
 | `deleteLog` | `id` | `Snapshot` |

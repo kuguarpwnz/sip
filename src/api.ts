@@ -13,7 +13,7 @@ export interface ReminderSettings {
 }
 export interface Settings {
   dailyGoalMl: number; reminders: ReminderSettings;
-  /** Always an existing volume, and an active type: the host applies the first-by-position fallback. */
+  /** What the next drink repeats, derived from the newest log. Always an existing volume and an active type. */
   lastVolumeId: number | null; lastTypeId: number | null;
 }
 export interface Snapshot {

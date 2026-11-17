@@ -57,7 +57,7 @@ const back = async () => {
   await settle();
 };
 
-const addTea400 = () => seed("add_log", { atMs: Date.now() - 5 * MIN, ml: 400, typeId: 3 });
+const addTea400 = () => seed("add_log", { atMs: Date.now() - 30 * MIN, ml: 400, typeId: 3 });
 const TEA_400 = /Tea\s*400 ml/;
 
 beforeEach(() => {
@@ -94,7 +94,7 @@ describe("tapping a history row", () => {
 
   it("selects the volume and keeps the type when the type is archived", async () => {
     await boot(async () => {
-      await seed("add_log", { atMs: Date.now() - 5 * MIN, ml: 330, typeId: 5 });
+      await seed("add_log", { atMs: Date.now() - 30 * MIN, ml: 330, typeId: 5 });
       await seed("delete_type", { id: 5 });
     });
 
@@ -227,5 +227,38 @@ describe("+ DRINK", () => {
     await settle();
 
     expect(rows()).toHaveLength(4);
+  });
+});
+
+describe("the default chips", () => {
+  it("follow the newest log, so editing it changes the next drink", async () => {
+    await boot();
+    expect(selected()).toEqual(["Water", "250 ml"]);
+
+    t.fireEvent.contextMenu(row(/Water\s*250 ml/));
+    await settle();
+    const editor = t.screen.getByRole("dialog", { name: "Edit drink" });
+    t.fireEvent.click(t.within(editor).getByRole("radio", { name: "Coffee" }));
+    t.fireEvent.input(t.within(editor).getByLabelText("Amount (ml)"), { target: { value: "150" } });
+    t.fireEvent.click(t.within(editor).getByRole("button", { name: "Save" }));
+    await settle();
+
+    expect(dialogs()).toHaveLength(0);
+    expect(selected()).toEqual(["Coffee", "150 ml"]);
+    expect(t.screen.getByRole("button", { name: "+ DRINK 150 ml" })).toBeTruthy();
+  });
+
+  it("keep the first volume when the newest log's amount has no volume", async () => {
+    await boot(() => seed("add_log", { atMs: Date.now() - 5 * MIN, ml: 400, typeId: 3 }));
+
+    expect(selected()).toEqual(["Tea", "150 ml"]);
+  });
+
+  it("start from the first volume and type with no logs at all", async () => {
+    await boot(async () => {
+      for (const id of [1, 2, 3, 4]) await seed("delete_log", { id });
+    });
+
+    expect(selected()).toEqual(["Water", "150 ml"]);
   });
 });

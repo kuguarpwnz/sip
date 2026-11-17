@@ -31,8 +31,8 @@ const volumes: Volume[] = [
 const settings: Settings = {
   dailyGoalMl: 2000,
   reminders: { enabled: true, intervalMin: 60, quietAfterDrinkMin: 60, activeFrom: "08:00", activeTo: "22:00", pauseWhenGoalMet: true },
-  lastVolumeId: 2,
-  lastTypeId: 1,
+  lastVolumeId: null,
+  lastTypeId: null,
 };
 const status: ReminderStatus = {
   notificationsAllowed: true,
@@ -48,7 +48,7 @@ const seedLogs = (t0: number): DrinkLog[] => [
   { id: 1, atMs: t0 - 205 * MIN, ml: 330, typeId: 1 },
   { id: 2, atMs: t0 - 160 * MIN, ml: 150, typeId: 2 },
   { id: 3, atMs: t0 - 95 * MIN, ml: 500, typeId: 1 },
-  { id: 4, atMs: t0 - 25 * MIN, ml: 250, typeId: 3 },
+  { id: 4, atMs: t0 - 25 * MIN, ml: 250, typeId: 1 },
 ];
 const logs: DrinkLog[] = seedLogs(Date.now());
 let nextId = 100;
@@ -69,15 +69,28 @@ const reset = (now = Date.now()) => {
   listeners.clear();
 };
 
+/** The newest log of any day, ties broken by the highest id, as the host's query orders it. */
+const newestLog = () => logs.reduce<DrinkLog | undefined>((a, b) => (!a || b.atMs > a.atMs || (b.atMs === a.atMs && b.id > a.id) ? b : a), undefined);
+
+const preset = () => {
+  const active = types.filter((t) => !t.archived).sort((a, b) => a.position - b.position);
+  const ordered = [...volumes].sort((a, b) => a.position - b.position);
+  const newest = newestLog();
+  return {
+    lastTypeId: (active.find((t) => t.id === newest?.typeId) ?? active[0])?.id ?? null,
+    lastVolumeId: (ordered.find((v) => v.ml === newest?.ml) ?? ordered[0])?.id ?? null,
+  };
+};
+
 const snapshot = (): Snapshot => {
   const today = logs.filter((l) => l.atMs >= midnight()).sort((a, b) => a.atMs - b.atMs || a.id - b.id);
   return clone({
-    settings,
+    settings: { ...settings, ...preset() },
     types: [...types].sort((a, b) => a.position - b.position),
     volumes: [...volumes].sort((a, b) => a.position - b.position),
     todayLogs: today,
     dayStartMs: midnight(),
-    lastDrinkAtMs: logs.length ? Math.max(...logs.map((l) => l.atMs)) : null,
+    lastDrinkAtMs: newestLog()?.atMs ?? null,
   });
 };
 
@@ -102,8 +115,6 @@ const commands: Record<string, (a: Args) => unknown> = {
   log_drink: ({ volumeId, typeId }) => {
     const v = volumes.find((x) => x.id === volumeId) ?? fail("Unknown volume");
     logs.push({ id: nextId++, atMs: Date.now(), ml: v.ml, typeId });
-    settings.lastVolumeId = volumeId;
-    settings.lastTypeId = typeId;
     return snapshot();
   },
   add_log: ({ atMs, ml, typeId }) => {

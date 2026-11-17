@@ -116,7 +116,7 @@ try {
       sameFields(s.settings.reminders, { enabled: true, intervalMin: 60, quietAfterDrinkMin: 60, activeFrom: "08:00", activeTo: "22:00", pauseWhenGoalMet: true }),
       show(s.settings.reminders),
     );
-    check("seed: preselects 250 ml and Water", s.settings.lastVolumeId === volumeId(s, 250) && s.settings.lastTypeId === typeId(s, "Water"));
+    check("seed: with no logs the preset is the first volume and the first type", s.settings.lastVolumeId === volumeId(s, 150) && s.settings.lastTypeId === typeId(s, "Water"), show(s.settings));
     check("seed: no logs yet", s.todayLogs.length === 0 && s.lastDrinkAtMs === null);
   }
   const midnight = await evaluate("(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); })()");
@@ -135,7 +135,7 @@ try {
   const logged = s.todayLogs[0];
   check("logDrink copies ml from the volume", logged?.ml === 330 && logged.typeId === coffee, show(logged));
   check("logDrink stamps the current time", logged.atMs >= before - 1000 && logged.atMs <= after + 1000);
-  check("logDrink updates the last-used ids", s.settings.lastVolumeId === v330 && s.settings.lastTypeId === coffee);
+  check("logDrink moves the preset to the new log", s.settings.lastVolumeId === v330 && s.settings.lastTypeId === coffee);
   check("logDrink sets lastDrinkAtMs", s.lastDrinkAtMs === logged.atMs);
   await rejects("logDrink rejects an unknown volume", "log_drink", { volumeId: 9999, typeId: water }, "volume");
   await rejects("logDrink rejects an unknown type", "log_drink", { volumeId: v250, typeId: 9999 }, "type");
@@ -152,7 +152,7 @@ try {
   const added = s.todayLogs.find((l) => l.atMs === noon);
   check("addLog adds a log at the given time", added?.ml === 200 && added.typeId === tea, show(s.todayLogs));
   check("todayLogs are newest first", s.todayLogs.every((l, i, a) => i === 0 || a[i - 1].atMs >= l.atMs));
-  check("addLog leaves the last-used ids alone", s.settings.lastVolumeId === v330 && s.settings.lastTypeId === coffee);
+  check("addLog of an older drink leaves the preset alone", s.settings.lastVolumeId === v330 && s.settings.lastTypeId === coffee);
   const lastDrink = s.lastDrinkAtMs;
   s = await ok("add_log", { atMs: midnight - 3600_000, ml: 100, typeId: water });
   check("a log from yesterday is not in todayLogs", !s.todayLogs.some((l) => l.ml === 100));
@@ -171,6 +171,21 @@ try {
   check("deleteLog removes the log", !s.todayLogs.some((l) => l.id === added.id));
   s = await ok("delete_log", { id: added.id });
   check("deleteLog twice is harmless", !s.todayLogs.some((l) => l.id === added.id));
+
+  s = await ok("update_log", { id: logged.id, atMs: logged.atMs, ml: 400, typeId: tea });
+  check("editing the newest log moves the preset to its type", s.settings.lastTypeId === tea, show(s.settings));
+  check("an amount with no volume presets the first volume", s.settings.lastVolumeId === s.volumes[0].id, show(s.settings));
+  s = await ok("update_log", { id: logged.id, atMs: logged.atMs, ml: 330, typeId: coffee });
+  check("editing it back moves the preset back", s.settings.lastTypeId === coffee && s.settings.lastVolumeId === v330, show(s.settings));
+  s = await ok("add_log", { atMs: logged.atMs + 1000, ml: 500, typeId: water });
+  const tieFirst = s.todayLogs.find((l) => l.ml === 500 && l.atMs === logged.atMs + 1000);
+  s = await ok("add_log", { atMs: logged.atMs + 1000, ml: 750, typeId: tea });
+  const tieSecond = s.todayLogs.find((l) => l.ml === 750 && l.atMs === logged.atMs + 1000);
+  check("at the same time the highest id is the newest", tieSecond.id > tieFirst.id && s.settings.lastTypeId === tea && s.settings.lastVolumeId === volumeId(s, 750), show(s.settings));
+  s = await ok("delete_log", { id: tieSecond.id });
+  check("deleting the newest log moves the preset to the one before", s.settings.lastTypeId === water && s.settings.lastVolumeId === volumeId(s, 500), show(s.settings));
+  s = await ok("delete_log", { id: tieFirst.id });
+  check("the preset returns to the first log once the newer ones are gone", s.settings.lastTypeId === coffee && s.settings.lastVolumeId === v330, show(s.settings));
 
   s = await ok("save_volume", { ml: 1000, label: "Big", icon: "bucket-droplet" });
   const v1000 = s.volumes.at(-1);

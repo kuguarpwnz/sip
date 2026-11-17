@@ -38,9 +38,11 @@ data class Snapshot(
     val volumes: List<Volume>,
     val todayLogs: List<DrinkLog>,
     val dayStart: Instant,
-    val lastDrinkAt: Instant?,
+    val newestLog: DrinkLog?,
+    val preset: Preset,
 ) {
     val todayMl: Int get() = todayLogs.sumOf { it.ml }
+    val lastDrinkAt: Instant? get() = newestLog?.at
 }
 
 data class ReminderStatus(
