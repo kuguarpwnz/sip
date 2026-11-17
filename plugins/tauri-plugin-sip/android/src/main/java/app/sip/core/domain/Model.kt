@@ -10,11 +10,14 @@ value class AppIcon(val key: String) {
     }
 }
 
-data class DrinkType(val id: Long, val label: String, val icon: AppIcon, val position: Int, val archived: Boolean)
+data class DrinkType(val id: Long, val label: String, val icon: AppIcon, val position: Int, val archived: Boolean, val waterPct: Int)
 
 data class Volume(val id: Long, val ml: Int, val label: String, val icon: AppIcon, val position: Int)
 
-data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long)
+/** `waterMl` is `ml` scaled by the drink type's current water content. It is computed on read and never stored. */
+data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long, val waterMl: Int)
+
+fun waterMlOf(ml: Int, waterPct: Int): Int = (ml * waterPct + 50) / 100
 
 data class ReminderSettings(
     val enabled: Boolean,
@@ -41,7 +44,7 @@ data class Snapshot(
     val newestLog: DrinkLog?,
     val preset: Preset,
 ) {
-    val todayMl: Int get() = todayLogs.sumOf { it.ml }
+    val todayMl: Int get() = todayLogs.sumOf { it.waterMl }
     val lastDrinkAt: Instant? get() = newestLog?.at
 }
 
@@ -58,7 +61,7 @@ data class Logged(val log: DrinkLog, val type: DrinkType, val snapshot: Snapshot
 
 data class LogInput(val id: Long?, val at: Instant, val ml: Int, val typeId: Long)
 data class VolumeInput(val id: Long?, val ml: Int, val label: String, val icon: AppIcon)
-data class TypeInput(val id: Long?, val label: String, val icon: AppIcon)
+data class TypeInput(val id: Long?, val label: String, val icon: AppIcon, val waterPct: Int)
 
 data class ReminderPatch(
     val enabled: Boolean? = null,

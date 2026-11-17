@@ -26,7 +26,8 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE drink_type (id INTEGER PRIMARY KEY, label TEXT NOT NULL, icon TEXT NOT NULL, " +
-                "position INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0)"
+                "position INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0, " +
+                "water_pct INTEGER NOT NULL DEFAULT 100 CHECK (water_pct BETWEEN 0 AND 100))"
         )
         db.execSQL(
             "CREATE TABLE volume (id INTEGER PRIMARY KEY, ml INTEGER NOT NULL CHECK (ml > 0), " +
@@ -43,15 +44,24 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 2) {
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
+            db.execSQL(
+                "ALTER TABLE drink_type ADD COLUMN water_pct INTEGER NOT NULL DEFAULT 100 " +
+                    "CHECK (water_pct BETWEEN 0 AND 100)"
+            )
             db.execSQL("DELETE FROM kv WHERE key IN ('last_volume_id', 'last_type_id')")
         }
     }
 
     private fun seed(db: SQLiteDatabase) {
-        listOf("droplet" to "Water", "coffee" to "Coffee", "teapot" to "Tea", "lemon-2" to "Juice", "milk" to "Milk")
-            .forEachIndexed { i, (icon, label) ->
+        listOf(
+            Triple("droplet", "Water", 100),
+            Triple("coffee", "Coffee", 99),
+            Triple("teapot", "Tea", 99),
+            Triple("lemon-2", "Juice", 88),
+            Triple("milk", "Milk", 88),
+        ).forEachIndexed { i, (icon, label, waterPct) ->
                 db.insertOrThrow("drink_type", null, ContentValues().apply {
-                    put("id", i + 1); put("label", label); put("icon", icon); put("position", i)
+                    put("id", i + 1); put("label", label); put("icon", icon); put("position", i); put("water_pct", waterPct)
                 })
             }
         listOf(150 to "cup", 250 to "glass-full", 330 to "glass", 500 to "bottle", 750 to "bucket-droplet")

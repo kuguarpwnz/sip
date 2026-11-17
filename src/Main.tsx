@@ -45,7 +45,7 @@ const ChipRow = (p: { label: string; selected: number | undefined; children: JSX
 };
 
 export default function Main() {
-  const total = createMemo(() => s().todayLogs.reduce((sum, l) => sum + l.ml, 0));
+  const total = createMemo(() => s().todayLogs.reduce((sum, l) => sum + l.waterMl, 0));
   const percent = () => Math.round((total() / s().settings.dailyGoalMl) * 100);
   const newestFirst = createMemo(() => [...s().todayLogs].sort((a, b) => b.atMs - a.atMs));
   const typeById = createMemo(() => new Map(s().types.map((t) => [t.id, t])));
@@ -192,7 +192,12 @@ export default function Main() {
                 <time>{hhmm(l.atMs)}</time>
                 <Icon name={typeById().get(l.typeId)?.icon ?? "droplet"} />
                 <span class="what">{typeById().get(l.typeId)?.label}</span>
-                <span class="ml">{fmtMl(l.ml)} ml</span>
+                <span class="ml">
+                  {fmtMl(l.ml)} ml
+                  <Show when={l.waterMl !== l.ml}>
+                    <small>{fmtMl(l.waterMl)} ml water</small>
+                  </Show>
+                </span>
               </button>
             </li>
           )}

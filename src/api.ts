@@ -3,9 +3,10 @@ import type { IconKey } from "./icons.gen";
 
 export type { IconKey };
 
-export interface DrinkType { id: number; label: string; icon: IconKey; position: number; archived: boolean }
+export interface DrinkType { id: number; label: string; icon: IconKey; position: number; archived: boolean; waterPct: number }
 export interface Volume { id: number; ml: number; label: string; icon: IconKey; position: number }
-export interface DrinkLog { id: number; atMs: number; ml: number; typeId: number }
+/** `waterMl` is `ml` scaled by the type's current waterPct, so changing the percentage recalculates every log of that type. */
+export interface DrinkLog { id: number; atMs: number; ml: number; typeId: number; waterMl: number }
 export interface ReminderSettings {
   enabled: boolean; intervalMin: number; quietAfterDrinkMin: number;
   activeFrom: string; activeTo: string; // "HH:mm"
@@ -27,7 +28,7 @@ export interface ReminderStatus {
 
 export interface LogInput { atMs: number; ml: number; typeId: number }
 export interface VolumeInput { id?: number; ml: number; label: string; icon: IconKey }
-export interface TypeInput { id?: number; label: string; icon: IconKey }
+export interface TypeInput { id?: number; label: string; icon: IconKey; waterPct: number }
 export interface SettingsPatch { dailyGoalMl?: number; reminders?: Partial<ReminderSettings> }
 
 export type SettingsTarget = "notifications" | "exactAlarms" | "battery" | "app";

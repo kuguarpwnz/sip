@@ -13,6 +13,7 @@ export default function ItemSheet(p: { kind: "volume" | "type"; id: number | nul
   });
   const [ml, setMl] = createSignal(String(current && "ml" in current ? current.ml : 250));
   const [label, setLabel] = createSignal(current?.label ?? "");
+  const [waterPct, setWaterPct] = createSignal(String(current && "waterPct" in current ? current.waterPct : 100));
   const [icon, setIcon] = createSignal<IconKey>(current?.icon ?? (isVolume ? "glass" : "droplet"));
 
   const save = async () => {
@@ -24,7 +25,9 @@ export default function ItemSheet(p: { kind: "volume" | "type"; id: number | nul
       if (!ml() || !Number.isFinite(amount)) return showToast("Enter the amount in ml");
       command = () => api.saveVolume({ id, ml: amount, label: text, icon: icon() });
     } else {
-      command = () => api.saveType({ id, label: text, icon: icon() });
+      const pct = Number(waterPct());
+      if (!waterPct() || !Number.isInteger(pct) || pct < 0 || pct > 100) return showToast("Water content must be 0 to 100%");
+      command = () => api.saveType({ id, label: text, icon: icon(), waterPct: pct });
     }
     if (await run(command)) closeLayer();
   };
@@ -39,6 +42,11 @@ export default function ItemSheet(p: { kind: "volume" | "type"; id: number | nul
       <Field label={isVolume ? "Label (optional)" : "Label"}>
         <input type="text" maxlength="24" value={label()} onInput={(e) => setLabel(e.currentTarget.value)} />
       </Field>
+      {!isVolume && (
+        <Field label="Water content (%)">
+          <input type="number" inputmode="numeric" min="0" max="100" value={waterPct()} onInput={(e) => setWaterPct(e.currentTarget.value)} />
+        </Field>
+      )}
       <div class="icon-grid" role="radiogroup" aria-label="Icon">
         <For each={ICON_KEYS}>
           {(key) => (

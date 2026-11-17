@@ -1,6 +1,6 @@
 // Development only: stands in for the Tauri host so the UI can run in a desktop browser.
 // index.tsx imports it under `import.meta.env.DEV`, so it never reaches the release bundle.
-import type { DrinkLog, DrinkType, PermissionState, ReminderStatus, Settings, Snapshot, Volume } from "../api";
+import type { DrinkLog as LoggedDrink, DrinkType, PermissionState, ReminderStatus, Settings, Snapshot, Volume } from "../api";
 
 const MIN = 60_000;
 const DAY = 86_400_000;
@@ -12,14 +12,17 @@ const midnight = () => {
   return d.getTime();
 };
 
+/** What the host stores. `waterMl` is computed from the type when a snapshot is read. */
+type DrinkLog = Omit<LoggedDrink, "waterMl">;
+
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 
 const types: DrinkType[] = [
-  { id: 1, label: "Water", icon: "droplet", position: 0, archived: false },
-  { id: 2, label: "Coffee", icon: "coffee", position: 1, archived: false },
-  { id: 3, label: "Tea", icon: "teapot", position: 2, archived: false },
-  { id: 4, label: "Juice", icon: "lemon-2", position: 3, archived: false },
-  { id: 5, label: "Milk", icon: "milk", position: 4, archived: false },
+  { id: 1, label: "Water", icon: "droplet", position: 0, archived: false, waterPct: 100 },
+  { id: 2, label: "Coffee", icon: "coffee", position: 1, archived: false, waterPct: 99 },
+  { id: 3, label: "Tea", icon: "teapot", position: 2, archived: false, waterPct: 99 },
+  { id: 4, label: "Juice", icon: "lemon-2", position: 3, archived: false, waterPct: 88 },
+  { id: 5, label: "Milk", icon: "milk", position: 4, archived: false, waterPct: 88 },
 ];
 const volumes: Volume[] = [
   { id: 1, ml: 150, label: "Espresso cup", icon: "cup", position: 0 },
@@ -88,7 +91,7 @@ const snapshot = (): Snapshot => {
     settings: { ...settings, ...preset() },
     types: [...types].sort((a, b) => a.position - b.position),
     volumes: [...volumes].sort((a, b) => a.position - b.position),
-    todayLogs: today,
+    todayLogs: today.map((l) => ({ ...l, waterMl: Math.round((l.ml * (types.find((t) => t.id === l.typeId)?.waterPct ?? 100)) / 100) })),
     dayStartMs: midnight(),
     lastDrinkAtMs: newestLog()?.atMs ?? null,
   });
@@ -148,11 +151,12 @@ const commands: Record<string, (a: Args) => unknown> = {
     reorder(volumes, ids);
     return snapshot();
   },
-  save_type: ({ id, label: text, icon }) => {
+  save_type: ({ id, label: text, icon, waterPct }) => {
     const name = label(text);
+    if (!Number.isInteger(waterPct) || waterPct < 0 || waterPct > 100) fail("Water content must be between 0 and 100%");
     const row = id === undefined ? undefined : (types.find((t) => t.id === id) ?? fail("Unknown drink type"));
-    if (row) Object.assign(row, { label: name, icon });
-    else types.push({ id: nextId++, label: name, icon, position: types.length, archived: false });
+    if (row) Object.assign(row, { label: name, icon, waterPct });
+    else types.push({ id: nextId++, label: name, icon, position: types.length, archived: false, waterPct });
     return snapshot();
   },
   delete_type: ({ id }) => {

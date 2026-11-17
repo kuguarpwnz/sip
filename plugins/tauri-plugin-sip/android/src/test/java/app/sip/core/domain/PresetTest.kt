@@ -6,14 +6,14 @@ import org.junit.Test
 
 class PresetTest {
     private fun type(id: Long, position: Int, archived: Boolean = false) =
-        DrinkType(id, "Type $id", AppIcon.DROPLET, position, archived)
+        DrinkType(id, "Type $id", AppIcon.DROPLET, position, archived, 100)
 
     private fun volume(id: Long, ml: Int, position: Int) = Volume(id, ml, "", AppIcon.DROPLET, position)
 
     private val types = listOf(type(1, 0), type(2, 1), type(3, 2, archived = true))
     private val volumes = listOf(volume(10, 150, 0), volume(11, 250, 1), volume(12, 330, 2))
 
-    private fun log(ml: Int, typeId: Long) = DrinkLog(1, Instant.EPOCH, ml, typeId)
+    private fun log(ml: Int, typeId: Long) = DrinkLog(1, Instant.EPOCH, ml, typeId, ml)
 
     @Test
     fun repeatsTheNewestLogsTypeAndVolume() {

@@ -108,6 +108,7 @@ try {
 
   if (!args.has("--keep-data")) {
     check("seed: drink types", show(s.types.map((t) => t.label)) === show(["Water", "Coffee", "Tea", "Juice", "Milk"]), show(s.types));
+    check("seed: water content", show(s.types.map((t) => t.waterPct)) === show([100, 99, 99, 88, 88]), show(s.types));
     check("seed: types are active and ordered", s.types.every((t, i) => !t.archived && t.position === i));
     check("seed: volumes", show(s.volumes.map((v) => v.ml)) === show([150, 250, 330, 500, 750]), show(s.volumes));
     check("seed: goal", s.settings.dailyGoalMl === 2000);
@@ -136,6 +137,7 @@ try {
   check("logDrink copies ml from the volume", logged?.ml === 330 && logged.typeId === coffee, show(logged));
   check("logDrink stamps the current time", logged.atMs >= before - 1000 && logged.atMs <= after + 1000);
   check("logDrink moves the preset to the new log", s.settings.lastVolumeId === v330 && s.settings.lastTypeId === coffee);
+  check("a log's waterMl is its ml scaled by the type's waterPct", logged.waterMl === Math.round((330 * 99) / 100), show(logged));
   check("logDrink sets lastDrinkAtMs", s.lastDrinkAtMs === logged.atMs);
   await rejects("logDrink rejects an unknown volume", "log_drink", { volumeId: 9999, typeId: water }, "volume");
   await rejects("logDrink rejects an unknown type", "log_drink", { volumeId: v250, typeId: 9999 }, "type");
@@ -211,15 +213,27 @@ try {
   for (const ml of [150, 250, 330, 500, 750]) s = await ok("save_volume", { ml, label: "", icon: "glass" });
   s = await ok("delete_volume", { id: keep });
 
-  s = await ok("save_type", { label: "Smoothie", icon: "apple" });
+  s = await ok("save_type", { id: coffee, label: "Coffee", icon: "coffee", waterPct: 50 });
+  check("changing a type's waterPct recalculates its existing logs", s.todayLogs.find((l) => l.id === logged.id).waterMl === 165 && s.todayLogs.find((l) => l.id === logged.id).ml === 330, show(s.todayLogs));
+  check("the total sums waterMl", s.todayLogs.reduce((n, l) => n + l.waterMl, 0) === s.todayLogs.reduce((n, l) => n + Math.round((l.ml * s.types.find((t) => t.id === l.typeId).waterPct) / 100), 0));
+  s = await ok("save_type", { id: coffee, label: "Coffee", icon: "coffee", waterPct: 0 });
+  check("0% water is allowed and counts nothing", s.todayLogs.find((l) => l.id === logged.id).waterMl === 0);
+  s = await ok("save_type", { id: coffee, label: "Coffee", icon: "coffee", waterPct: 99 });
+  check("restoring the percentage restores the water", s.todayLogs.find((l) => l.id === logged.id).waterMl === 327);
+  s = await ok("save_type", { label: "Smoothie", icon: "apple", waterPct: 70 });
   const smoothie = s.types.at(-1);
   check("a new type goes last", smoothie.label === "Smoothie" && !smoothie.archived && smoothie.position === s.types.length - 1, show(smoothie));
-  s = await ok("save_type", { id: smoothie.id, label: "Shake", icon: "milk" });
-  check("saveType edits label and icon", s.types.find((t) => t.id === smoothie.id)?.label === "Shake");
-  await rejects("saveType rejects an empty label", "save_type", { label: "  ", icon: "milk" }, "label");
-  await rejects("saveType rejects a 25 character label", "save_type", { label: "x".repeat(25), icon: "milk" }, "label");
-  await rejects("saveType rejects an unknown icon key", "save_type", { label: "Odd", icon: "nope" }, "icon");
-  await rejects("saveType rejects an unknown id", "save_type", { id: 9999, label: "Odd", icon: "milk" }, "not found");
+  check("a new type keeps its waterPct", smoothie.waterPct === 70, show(smoothie));
+  s = await ok("save_type", { id: smoothie.id, label: "Shake", icon: "milk", waterPct: 85 });
+  check("saveType edits label, icon and waterPct", s.types.find((t) => t.id === smoothie.id)?.label === "Shake" && s.types.find((t) => t.id === smoothie.id)?.waterPct === 85);
+  await rejects("saveType rejects 101% water", "save_type", { id: smoothie.id, label: "Shake", icon: "milk", waterPct: 101 }, "between 0 and 100");
+  await rejects("saveType rejects -1% water", "save_type", { id: smoothie.id, label: "Shake", icon: "milk", waterPct: -1 }, "between 0 and 100");
+  await rejects("saveType rejects a fractional percentage", "save_type", { id: smoothie.id, label: "Shake", icon: "milk", waterPct: 50.5 }, "whole number");
+  await rejects("saveType rejects a missing percentage", "save_type", { id: smoothie.id, label: "Shake", icon: "milk" }, "waterPct");
+  await rejects("saveType rejects an empty label", "save_type", { label: "  ", icon: "milk", waterPct: 100 }, "label");
+  await rejects("saveType rejects a 25 character label", "save_type", { label: "x".repeat(25), icon: "milk", waterPct: 100 }, "label");
+  await rejects("saveType rejects an unknown icon key", "save_type", { label: "Odd", icon: "nope", waterPct: 100 }, "icon");
+  await rejects("saveType rejects an unknown id", "save_type", { id: 9999, label: "Odd", icon: "milk", waterPct: 100 }, "not found");
   const activeIds = s.types.filter((t) => !t.archived).map((t) => t.id);
   s = await ok("reorder_types", { ids: [...activeIds].reverse() });
   check("reorderTypes applies the order", show(s.types.map((t) => t.id)) === show([...activeIds].reverse()));

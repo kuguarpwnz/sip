@@ -156,6 +156,7 @@ export default function Settings(p: { focus?: "reliability" }) {
             title="Drink types"
             items={s().types.filter((t) => !t.archived)}
             primary={(t) => t.label}
+            secondary={(t) => (t.waterPct < 100 ? `${t.waterPct}% water` : "")}
             addLabel="Add drink type"
             onReorder={(ids) => run(() => api.reorderTypes(ids))}
             onEdit={(id) => openLayer({ kind: "typeEditor", id })}

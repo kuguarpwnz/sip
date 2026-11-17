@@ -262,3 +262,74 @@ describe("the default chips", () => {
     expect(selected()).toEqual(["Water", "150 ml"]);
   });
 });
+
+describe("water content", () => {
+  const addJuice500 = () => seed("add_log", { atMs: Date.now() - 40 * MIN, ml: 500, typeId: 4 });
+  const ringLabel = () => t.screen.getByRole("img").getAttribute("aria-label");
+  const total = () => t.screen.getByText(/ \/ 2\s000 ml/).textContent;
+  const openSettings = async () => {
+    t.fireEvent.click(t.screen.getByRole("button", { name: "Settings" }));
+    await vi.dynamicImportSettled();
+    await settle();
+  };
+
+  it("counts the ring and the total in water, not in ml drunk", async () => {
+    await boot(addJuice500);
+
+    expect(total()).toMatch(/^1\s669 \/ 2\s000 ml$/);
+    expect(ringLabel()).toBe("83 percent of the daily goal");
+  });
+
+  it("shows the water line only on rows where it differs from the amount", async () => {
+    await boot(addJuice500);
+    const lines = () => t.screen.queryAllByText(/ml water$/).map((e) => e.textContent);
+
+    expect(lines()).toEqual(["440 ml water", "149 ml water"]);
+    expect(row(/Juice\s*500 ml/).textContent).toMatch(/440 ml water/);
+    expect(row(/Water\s*250 ml/).textContent).not.toMatch(/water$/);
+  });
+
+  it("is edited in the drink type sheet, and recalculates the logs of that type", async () => {
+    await boot(addJuice500);
+
+    await openSettings();
+    expect(t.screen.getAllByText("88% water", { selector: ".s" })).toHaveLength(2);
+    expect(t.screen.queryAllByText("100% water")).toHaveLength(0);
+
+    t.fireEvent.click(t.screen.getByRole("button", { name: "Edit Juice" }));
+    await settle();
+    const sheet = t.screen.getByRole("dialog", { name: "Edit drink type" });
+    const pct = t.within(sheet).getByLabelText("Water content (%)") as HTMLInputElement;
+    expect(pct.value).toBe("88");
+    t.fireEvent.input(pct, { target: { value: "50" } });
+    t.fireEvent.click(t.within(sheet).getByRole("button", { name: "Save" }));
+    await settle();
+
+    expect(t.screen.getByText("50% water", { selector: ".s" })).toBeTruthy();
+    await back();
+    expect(row(/Juice\s*500 ml/).textContent).toMatch(/250 ml water/);
+    expect(total()).toMatch(/^1\s479 \/ 2\s000 ml$/);
+  });
+
+  it("starts a new drink type at 100%, and rejects a value above 100", async () => {
+    await boot();
+    await openSettings();
+
+    t.fireEvent.click(t.screen.getByRole("button", { name: "Add drink type" }));
+    await settle();
+    const sheet = t.screen.getByRole("dialog", { name: "Add drink type" });
+    expect((t.within(sheet).getByLabelText("Water content (%)") as HTMLInputElement).value).toBe("100");
+
+    t.fireEvent.input(t.within(sheet).getByLabelText("Label"), { target: { value: "Smoothie" } });
+    t.fireEvent.input(t.within(sheet).getByLabelText("Water content (%)"), { target: { value: "101" } });
+    t.fireEvent.click(t.within(sheet).getByRole("button", { name: "Save" }));
+    await settle();
+    expect(toastText()).toBe("Water content must be 0 to 100%");
+    expect(dialogs().length).toBeGreaterThan(0);
+
+    t.fireEvent.input(t.within(sheet).getByLabelText("Water content (%)"), { target: { value: "70" } });
+    t.fireEvent.click(t.within(sheet).getByRole("button", { name: "Save" }));
+    await settle();
+    expect(t.screen.getByText("70% water", { selector: ".s" })).toBeTruthy();
+  });
+});

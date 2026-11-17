@@ -102,7 +102,8 @@ main > header .icon-btn { margin-right: -12px; }
 .logs button:active { background: var(--surface); }
 .logs time { color: var(--muted); width: 44px; font-variant-numeric: tabular-nums; }
 .logs .what { flex: 1; }
-.logs .ml { white-space: nowrap; }
+.logs .ml { white-space: nowrap; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
+.logs .ml small { color: var(--muted); font-size: 12px; }
 .logs .empty { color: var(--muted); padding: 16px 0; text-align: center; }
 
 .dock { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 8px 0 var(--pb); }

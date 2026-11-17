@@ -39,7 +39,7 @@ object Json {
                 .put("lastTypeId", orNull(s.settings.lastTypeId)))
             .put("types", JSONArray(s.types.map {
                 JSONObject().put("id", it.id).put("label", it.label).put("icon", it.icon.key)
-                    .put("position", it.position).put("archived", it.archived)
+                    .put("position", it.position).put("archived", it.archived).put("waterPct", it.waterPct)
             }))
             .put("volumes", JSONArray(s.volumes.map {
                 JSONObject().put("id", it.id).put("ml", it.ml).put("label", it.label)
@@ -67,7 +67,7 @@ object Json {
         .put("pauseWhenGoalMet", r.pauseWhenGoalMet)
 
     private fun log(l: DrinkLog) = JSONObject()
-        .put("id", l.id).put("atMs", l.at.toEpochMilli()).put("ml", l.ml).put("typeId", l.typeId)
+        .put("id", l.id).put("atMs", l.at.toEpochMilli()).put("ml", l.ml).put("typeId", l.typeId).put("waterMl", l.waterMl)
 
     private fun orNull(value: Any?): Any = value ?: JSONObject.NULL
 
@@ -88,7 +88,7 @@ object Json {
     fun parseType(args: JSONObject): TypeInput {
         val label = string(args, "label").trim()
         if (label.isEmpty() || label.length > 24) throw Rejected("Label must be 1 to 24 characters")
-        return TypeInput(optionalLong(args, "id"), label, iconKey(args))
+        return TypeInput(optionalLong(args, "id"), label, iconKey(args), waterPct(args))
     }
 
     fun parseIds(args: JSONObject): List<Long> {
@@ -135,6 +135,12 @@ object Json {
         val ml = int(args, "ml")
         if (ml !in 10..3000) throw Rejected("Amount must be 10 to 3000 ml")
         return ml
+    }
+
+    private fun waterPct(args: JSONObject): Int {
+        val pct = int(args, "waterPct")
+        if (pct !in 0..100) throw Rejected("Water content must be between 0 and 100%")
+        return pct
     }
 
     private fun iconKey(args: JSONObject): AppIcon {

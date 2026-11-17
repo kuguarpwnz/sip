@@ -39,9 +39,9 @@ These live in `domain/Model.kt`. They are plain Kotlin with no Android imports.
 ```kotlin
 enum class AppIcon(val key: String) { DROPLET("droplet"), GLASS("glass"), /* generated, see Icons */ }
 
-data class DrinkType(val id: Long, val label: String, val icon: AppIcon, val position: Int, val archived: Boolean)
+data class DrinkType(val id: Long, val label: String, val icon: AppIcon, val position: Int, val archived: Boolean, val waterPct: Int)
 data class Volume(val id: Long, val ml: Int, val label: String, val icon: AppIcon, val position: Int)
-data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long)
+data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long, val waterMl: Int) // waterMl is computed on read
 
 data class ReminderSettings(
 	val enabled: Boolean,
@@ -68,7 +68,7 @@ data class Snapshot(
 	val newestLog: DrinkLog?,   // latest at_ms on any day, highest id on a tie
 	val preset: Preset,         // derived from newestLog, see Rules
 ) {
-	val todayMl: Int get() = todayLogs.sumOf { it.ml }
+	val todayMl: Int get() = todayLogs.sumOf { it.waterMl }
 	val lastDrinkAt: Instant? get() = newestLog?.at
 }
 ```
@@ -79,7 +79,8 @@ The app uses plain `SQLiteOpenHelper`, with no Room and no annotation processing
 
 ```sql
 CREATE TABLE drink_type (id INTEGER PRIMARY KEY, label TEXT NOT NULL, icon TEXT NOT NULL,
-	position INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+	position INTEGER NOT NULL, archived INTEGER NOT NULL DEFAULT 0,
+	water_pct INTEGER NOT NULL DEFAULT 100 CHECK (water_pct BETWEEN 0 AND 100));
 CREATE TABLE volume (id INTEGER PRIMARY KEY, ml INTEGER NOT NULL CHECK (ml > 0),
 	label TEXT NOT NULL DEFAULT '', icon TEXT NOT NULL, position INTEGER NOT NULL);
 CREATE TABLE drink_log (id INTEGER PRIMARY KEY, at_ms INTEGER NOT NULL,
@@ -90,6 +91,8 @@ CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 `kv` holds the settings and the reminder bookkeeping (`scheduled_for_ms`, `last_fired_ms`).
 
+Version 2 added `drink_type.water_pct` and dropped the `last_volume_id` and `last_type_id` kv rows. `onUpgrade` from version 1 adds the column, so every existing type keeps 100, and deletes the two rows.
+
 ### Rules the repository enforces
 
 `data/Repo.kt` is the only code that writes to the database. Receivers run in the app process, so a single in-process repository is enough and no cross-process locking is needed.
@@ -98,12 +101,13 @@ CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 - A log points at its drink type by id. Deleting a type archives it, so pickers hide it and old logs still show its icon.
 - At least one volume and one active drink type always exist. The repository refuses to delete the last one.
 - Nothing stores the last-used drink. The preset is derived on every read from the newest log, the one with the latest `at_ms` on any day, with the highest id winning a tie. `lastTypeId` is that log's type if it is active, else the first active type by position. `lastVolumeId` is the first volume by position whose `ml` equals that log's `ml`, else the first volume. With no logs, the preset is the first volume and the first active type. Editing, adding or deleting a log therefore moves it. `domain/Preset.kt` holds the rule.
+- Water content is read-time. A log's water is `round(ml * pct / 100)`, rounding halves up, using its type's current `water_pct`. Logs get no column for it, so changing a type's percentage recalculates every log of that type, past days included. The goal ring, the totals, the notification text and `pauseWhenGoalMet` all count water. The log keeps its own `ml` for the "Logged 250 ml" text, the history row, undo and the editor.
 - A day runs from local midnight to local midnight.
 - Icons are stored as their string key. An unknown key parses to `DROPLET` when the row is read, so a bad row never crashes the UI.
 
 Seed data on first run:
 
-- Drink types: Water, Coffee, Tea, Juice, Milk.
+- Drink types, with their water content: Water 100%, Coffee 99%, Tea 99%, Juice 88%, Milk 88%. An upgraded install keeps 100% for every type.
 - Volumes: 150 ml, 250 ml, 330 ml, 500 ml, 750 ml.
 - Goal: 2000 ml. Reminders: every 60 minutes from 08:00 to 22:00, quiet for 60 minutes after a drink, paused once the goal is met.
 
@@ -159,6 +163,7 @@ Today                                   [settings]
 
 - The type chips, volume chips, and **+ DRINK** button sit at the bottom, in thumb reach. The last-used type and volume are preselected.
 - A tap on **+ DRINK** logs the drink, gives a haptic tick, animates the ring, and shows "Logged 250 ml Water. Undo" for four seconds.
+- A history row whose water differs from its amount shows a muted second line under the ml, "220 ml water".
 - A tap on a log row selects that drink's type and volume in the chip rows, ready for **+ DRINK**, so a repeat drink takes two taps. It logs nothing. If the type is archived or no volume matches the amount, that chip stays as it was and a toast says so.
 - A long press on a log row (450 ms, with a haptic tick) opens the edit sheet for that drink, for its volume, type, and time, so a drink you forgot to log can get the right time. The sheet includes **Delete**, which removes the drink and shows "Deleted 400 ml Tea. Undo".
 
@@ -166,7 +171,7 @@ Today                                   [settings]
 
 - **Daily goal** in ml, from 500 to 6000.
 - **Volumes**. Each row shows a drag handle, icon, "250 ml", and an optional label. A tap opens an editor for ml, label, and icon. You can drag rows to reorder them, delete a row, or tap **Add volume**.
-- **Drink types**. These use the same list editor, with label and icon.
+- **Drink types**. These use the same list editor, with label, icon and water content (0 to 100%, 100 for a new type). A row with less than 100% shows "88% water" as its second line.
 - **Reminders**. On or off, the interval in minutes (15 to 240), quiet after a drink in minutes (0 to 240), the active hours start and end, and pause when the goal is met.
 - **Reliability**. The checklist and the test button from the reminders section.
 
@@ -223,9 +228,9 @@ JSON shapes, as TypeScript:
 
 ```ts
 type IconKey = string; // one of ICON_KEYS from icons.gen.ts
-interface DrinkType { id: number; label: string; icon: IconKey; position: number; archived: boolean }
+interface DrinkType { id: number; label: string; icon: IconKey; position: number; archived: boolean; waterPct: number }
 interface Volume { id: number; ml: number; label: string; icon: IconKey; position: number }
-interface DrinkLog { id: number; atMs: number; ml: number; typeId: number }
+interface DrinkLog { id: number; atMs: number; ml: number; typeId: number; waterMl: number } // computed on read
 interface ReminderSettings {
 	enabled: boolean; intervalMin: number; quietAfterDrinkMin: number;
 	activeFrom: string; activeTo: string; // "HH:mm"
@@ -254,7 +259,7 @@ interface ReminderStatus {
 | `saveVolume` | `id` (absent for new), `ml`, `label`, `icon` | `Snapshot`. A new volume goes last. |
 | `deleteVolume` | `id` | `Snapshot`. Rejects the last volume. |
 | `reorderVolumes` | `ids` in the new order | `Snapshot` |
-| `saveType`, `deleteType`, `reorderTypes` | same pattern, with `label` and `icon` | `Snapshot`. Delete archives the type and rejects the last active one. |
+| `saveType`, `deleteType`, `reorderTypes` | same pattern, with `label`, `icon` and `waterPct` (0 to 100, required) | `Snapshot`. Delete archives the type and rejects the last active one. |
 | `saveSettings` | `dailyGoalMl` and `reminders`, each optional | `Snapshot` |
 | `reminderStatus` | none | `ReminderStatus` |
 | `openSystemSettings` | `target`: `notifications`, `exactAlarms`, `battery`, or `app` | nothing |
@@ -264,7 +269,7 @@ interface ReminderStatus {
 
 The plugin also emits a `changed` event with a `Snapshot` after any write that didn't come from the UI, such as the notification button. Notification permission uses Tauri's built-in `checkPermissions` and `requestPermissions` with the alias `notifications`.
 
-`saveSettings` validates input. The goal must be 500 to 6000 ml, the interval 15 to 240 minutes, and the quiet time 0 to 240 minutes, and `activeFrom` must come before `activeTo`. Labels must be 1 to 24 characters, `ml` 10 to 3000, and icon keys must be in `IconKeys`.
+`saveSettings` validates input. The goal must be 500 to 6000 ml, the interval 15 to 240 minutes, and the quiet time 0 to 240 minutes, and `activeFrom` must come before `activeTo`. Labels must be 1 to 24 characters, `ml` 10 to 3000, `waterPct` 0 to 100, and icon keys must be in `IconKeys`.
 
 ## Build order and file ownership
 
@@ -278,6 +283,5 @@ The plugin also emits a `changed` event with a `Snapshot` after any write that d
 
 - History and per-day stats.
 - A home screen widget and a Quick Settings tile, for logging without opening the app.
-- A hydration factor per drink type, so juice or beer can count less than water. In v1 every drink counts in full.
 - Backup and export.
 - A day that starts at 04:00 instead of midnight.

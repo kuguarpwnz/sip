@@ -15,6 +15,7 @@ import app.sip.core.domain.Settings
 import app.sip.core.domain.SettingsPatch
 import app.sip.core.domain.Snapshot
 import app.sip.core.domain.TypeInput
+import app.sip.core.domain.waterMlOf
 import app.sip.core.domain.Volume
 import app.sip.core.domain.VolumeInput
 import java.time.Instant
@@ -36,6 +37,9 @@ class Repo private constructor(context: Context) {
 
     companion object {
         @Volatile private var instance: Repo? = null
+
+        private const val LOG_SELECT =
+            "SELECT l.id, l.at_ms, l.ml, l.type_id, t.water_pct FROM drink_log l JOIN drink_type t ON t.id = l.type_id"
 
         fun get(context: Context): Repo =
             instance ?: synchronized(this) {
@@ -67,7 +71,7 @@ class Repo private constructor(context: Context) {
         val volume = findVolume(db, volumeId) ?: throw Rejected("Volume not found")
         val type = findType(db, typeId) ?: throw Rejected("Drink type not found")
         if (type.archived) throw Rejected("Drink type was deleted")
-        val log = insertLog(db, at, volume.ml, type.id)
+        val log = insertLog(db, at, volume.ml, type)
         Logged(log, type, readSnapshot(db, at))
     }
 
@@ -77,14 +81,14 @@ class Repo private constructor(context: Context) {
         val before = readSnapshot(db, at)
         val ml = before.preset.ml ?: throw Rejected("No volume")
         val type = before.types.firstOrNull { it.id == before.preset.typeId } ?: throw Rejected("No drink type")
-        val log = insertLog(db, at, ml, type.id)
+        val log = insertLog(db, at, ml, type)
         Logged(log, type, readSnapshot(db, at))
     }
 
     @Synchronized
     fun addLog(input: LogInput): Snapshot = tx { db ->
-        findType(db, input.typeId) ?: throw Rejected("Drink type not found")
-        insertLog(db, input.at, input.ml, input.typeId)
+        val type = findType(db, input.typeId) ?: throw Rejected("Drink type not found")
+        insertLog(db, input.at, input.ml, type)
         readSnapshot(db)
     }
 
@@ -140,12 +144,14 @@ class Repo private constructor(context: Context) {
     fun saveType(input: TypeInput): Snapshot = tx { db ->
         if (input.id == null) {
             db.execSQL(
-                "INSERT INTO drink_type (label, icon, position) " +
-                    "VALUES (?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM drink_type))",
-                arrayOf<Any>(input.label, input.icon.key),
+                "INSERT INTO drink_type (label, icon, water_pct, position) " +
+                    "VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM drink_type))",
+                arrayOf<Any>(input.label, input.icon.key, input.waterPct),
             )
         } else {
-            val values = ContentValues().apply { put("label", input.label); put("icon", input.icon.key) }
+            val values = ContentValues().apply {
+                put("label", input.label); put("icon", input.icon.key); put("water_pct", input.waterPct)
+            }
             if (db.update("drink_type", values, "id = ?", arrayOf(input.id.toString())) == 0) throw Rejected("Drink type not found")
         }
         readSnapshot(db)
@@ -265,18 +271,19 @@ class Repo private constructor(context: Context) {
         val types = readTypes(db)
         val logs = ArrayList<DrinkLog>()
         db.rawQuery(
-            "SELECT id, at_ms, ml, type_id FROM drink_log WHERE at_ms >= ? AND at_ms < ? ORDER BY at_ms DESC, id DESC",
+            "$LOG_SELECT WHERE l.at_ms >= ? AND l.at_ms < ? ORDER BY l.at_ms DESC, l.id DESC",
             arrayOf(dayStart.toEpochMilli().toString(), dayEnd.toEpochMilli().toString()),
-        ).use {
-            while (it.moveToNext()) logs.add(DrinkLog(it.getLong(0), Instant.ofEpochMilli(it.getLong(1)), it.getInt(2), it.getLong(3)))
-        }
-        val newest = db.rawQuery(
-            "SELECT id, at_ms, ml, type_id FROM drink_log ORDER BY at_ms DESC, id DESC LIMIT 1", null,
-        ).use {
-            if (it.moveToFirst()) DrinkLog(it.getLong(0), Instant.ofEpochMilli(it.getLong(1)), it.getInt(2), it.getLong(3)) else null
+        ).use { while (it.moveToNext()) logs.add(readLog(it)) }
+        val newest = db.rawQuery("$LOG_SELECT ORDER BY l.at_ms DESC, l.id DESC LIMIT 1", null).use {
+            if (it.moveToFirst()) readLog(it) else null
         }
         val preset = Preset.derive(newest, types, volumes)
         return Snapshot(readSettings(readKv(db), preset), types, volumes, logs, dayStart, newest, preset)
+    }
+
+    private fun readLog(c: android.database.Cursor): DrinkLog {
+        val ml = c.getInt(2)
+        return DrinkLog(c.getLong(0), Instant.ofEpochMilli(c.getLong(1)), ml, c.getLong(3), waterMlOf(ml, c.getInt(4)))
     }
 
     private fun readSettings(kv: Map<String, String>, preset: Preset): Settings {
@@ -316,8 +323,10 @@ class Repo private constructor(context: Context) {
 
     private fun readTypes(db: SQLiteDatabase): List<DrinkType> {
         val types = ArrayList<DrinkType>()
-        db.rawQuery("SELECT id, label, icon, position, archived FROM drink_type ORDER BY position, id", null).use {
-            while (it.moveToNext()) types.add(DrinkType(it.getLong(0), it.getString(1), Json.icon(it.getString(2)), it.getInt(3), it.getInt(4) == 1))
+        db.rawQuery("SELECT id, label, icon, position, archived, water_pct FROM drink_type ORDER BY position, id", null).use {
+            while (it.moveToNext()) {
+                types.add(DrinkType(it.getLong(0), it.getString(1), Json.icon(it.getString(2)), it.getInt(3), it.getInt(4) == 1, it.getInt(5)))
+            }
         }
         return types
     }
@@ -334,11 +343,11 @@ class Repo private constructor(context: Context) {
 
     private fun findVolume(db: SQLiteDatabase, id: Long): Volume? = readVolumes(db).firstOrNull { it.id == id }
 
-    private fun insertLog(db: SQLiteDatabase, at: Instant, ml: Int, typeId: Long): DrinkLog {
+    private fun insertLog(db: SQLiteDatabase, at: Instant, ml: Int, type: DrinkType): DrinkLog {
         val values = ContentValues().apply {
-            put("at_ms", at.toEpochMilli()); put("ml", ml); put("type_id", typeId)
+            put("at_ms", at.toEpochMilli()); put("ml", ml); put("type_id", type.id)
         }
-        return DrinkLog(db.insertOrThrow("drink_log", null, values), at, ml, typeId)
+        return DrinkLog(db.insertOrThrow("drink_log", null, values), at, ml, type.id, waterMlOf(ml, type.waterPct))
     }
 
     private fun setPosition(db: SQLiteDatabase, table: String, id: Long, position: Int) {
