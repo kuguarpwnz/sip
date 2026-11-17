@@ -222,6 +222,7 @@ There are no Android dependencies beyond what Tauri brings, plus `org.json` and 
 - Install the debug APK on it and run `node scripts/smoke-api.mjs`.
 - The Kotlin unit tests run with `cd src-tauri/gen/android && ./gradlew :tauri-plugin-sip:testDebugUnitTest`.
 - Startup timing (`scripts/measure-startup.sh`) needs the real phone. Emulator numbers don't count against the 500 ms budget.
+- The release build's WebView is inspectable too (`MainActivity.kt`), so a script on a USB-debugging Mac can call the plugin commands on `app.sip` the way smoke-api does on `app.sip.debug`. It only answers while the phone is unlocked with Sip in front. Never point smoke-api at `app.sip`, because it wipes data.
 
 ## Plugin API
 
