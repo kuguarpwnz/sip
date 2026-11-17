@@ -31,7 +31,12 @@ export const PickerButton = () => {
   const type = () => snap()!.types.find((t) => t.id === selectedTypeId());
   const volume = () => snap()!.volumes.find((v) => v.id === selectedVolumeId());
   return (
-    <button class="picker-btn" aria-haspopup="dialog" onClick={() => openLayer({ kind: "picker" })}>
+    <button
+      class="picker-btn"
+      aria-haspopup="dialog"
+      aria-label={`Choose drink: ${type()?.label ?? ""}, ${volume() ? fmtMl(volume()!.ml) : ""} ml`}
+      onClick={() => openLayer({ kind: "picker" })}
+    >
       <Show when={type()}>
         {(t) => (
           <span>

@@ -31,7 +31,7 @@ const click = async (el: HTMLElement) => {
 const button = (name: RegExp | string) => t.screen.getByRole("button", { name });
 const radio = (name: RegExp | string) => t.screen.getByRole("radio", { name });
 const checked = (name: RegExp | string) => radio(name).getAttribute("aria-checked");
-const pickerButton = () => button(/Water\s*250 ml/);
+const pickerButton = () => button("Choose drink: Water, 250 ml");
 const sheet = () => t.screen.queryByRole("dialog", { name: "Choose drink" });
 const loggedRows = () => t.screen.queryAllByRole("listitem").filter((li) => /\d ml/.test(li.textContent ?? ""));
 
@@ -52,7 +52,7 @@ describe("drink picker experiment", () => {
     await boot();
 
     expect(t.screen.getAllByRole("radiogroup")).toHaveLength(2);
-    expect(t.screen.queryByRole("button", { name: /Water\s*250 ml/ })).toBeNull();
+    expect(t.screen.queryByRole("button", { name: /^Choose drink/ })).toBeNull();
   });
 
   it("replaces the chip rows with one button once the setting is on", async () => {
@@ -87,7 +87,7 @@ describe("drink picker experiment", () => {
     expect(checked("Water")).toBe("false");
     expect(checked(/^330 ml$/)).toBe("true");
     expect(t.screen.getAllByRole("button", { name: "+ DRINK 330 ml" })).toHaveLength(2);
-    expect(t.screen.getByRole("button", { name: /Coffee\s*330 ml/ })).toBeTruthy();
+    expect(button("Choose drink: Coffee, 330 ml")).toBeTruthy();
   });
 
   it("logs from the sheet with the toast, then closes it", async () => {
