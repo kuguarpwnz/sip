@@ -3,6 +3,7 @@ import * as api from "./api";
 import { sameDay } from "./format";
 import LogEditor from "./LogEditor";
 import Main from "./Main";
+import { PickerSheet } from "./PickerList";
 import { Settings } from "./settings-lazy";
 import {
   dismissToast,
@@ -81,6 +82,9 @@ export default function App() {
 
       <Show when={layerOf("settings")}>
         {(l) => <Settings focus={l().focus} />}
+      </Show>
+      <Show when={layerOf("picker")}>
+        <PickerSheet />
       </Show>
       <Show when={layerOf("logEditor")}>{(l) => <LogEditor logId={l().logId} />}</Show>
 

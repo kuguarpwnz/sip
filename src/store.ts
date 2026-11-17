@@ -5,7 +5,8 @@ export type Layer =
   | { kind: "settings"; focus?: "reliability" }
   | { kind: "logEditor"; logId: number }
   | { kind: "volumeEditor"; id: number | null }
-  | { kind: "typeEditor"; id: number | null };
+  | { kind: "typeEditor"; id: number | null }
+  | { kind: "picker" };
 
 export interface Toast {
   text: string;
@@ -105,6 +106,19 @@ export const openLayer = (layer: Layer) => {
 };
 
 export const closeLayer = () => history.back();
+
+export const drink = async () => {
+  const s = snap();
+  const v = s?.volumes.find((x) => x.id === selectedVolumeId());
+  const t = s?.types.find((x) => x.id === selectedTypeId());
+  if (!v || !t) return false;
+  const next = await run(() => api.logDrink(v.id, t.id));
+  if (!next) return false;
+  void api.haptic().catch(() => {});
+  const newest = next.todayLogs.reduce((a, b) => (b.id > a.id ? b : a));
+  showToast(`Logged ${v.ml} ml ${t.label}`, () => void run(() => api.deleteLog(newest.id)));
+  return true;
+};
 
 export const deleteLogWithUndo = async (gone: api.DrinkLog) => {
   if (!(await run(() => api.deleteLog(gone.id)))) return;

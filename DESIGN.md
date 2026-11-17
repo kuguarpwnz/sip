@@ -167,6 +167,8 @@ Today                                   [settings]
 - A tap on a log row selects that drink's type and volume in the chip rows, ready for **+ DRINK**, so a repeat drink takes two taps. It logs nothing. If the type is archived or no volume matches the amount, that chip stays as it was and a toast says so.
 - A long press on a log row (450 ms, with a haptic tick) opens the edit sheet for that drink, for its volume, type, and time, so a drink you forgot to log can get the right time. The sheet includes **Delete**, which removes the drink and shows "Deleted 400 ml Tea. Undo".
 
+- **Experiment: pick from a list.** A setting under Settings, Experiments ("Pick drinks from a list", localStorage `sip.picker` = `list`) swaps the two chip rows for one button that opens a "Choose drink" sheet with a vertical list of types and one of volumes. `src/PickerList.tsx` owns the signal, the button and the sheet. To delete the experiment, delete that file and these lines. In `store.ts`, the `| { kind: "picker" }` layer variant. In `App.tsx`, the `PickerSheet` import and its `<Show when={layerOf("picker")}>` block. In `Main.tsx`, the `PickerButton, pickFromList` import and the `<Show when={pickFromList()} fallback=...>` wrapper (keep the chip rows). In `Settings.tsx`, the `pickFromList, setPickFromList` import and the Experiments section. In `app.css`, the `.picker-btn` and `.pick-*` rules. Delete `src/picker.test.tsx`. The shared `drink()` in `store.ts` stays. To keep the list instead, delete the two `ChipRow`s and `PickerList.tsx`'s toggle.
+
 ### Settings
 
 - **Daily goal** in ml, from 500 to 6000.
