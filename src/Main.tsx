@@ -4,14 +4,15 @@ import type { DrinkLog } from "./api";
 import { ago, fmtMl, hhmm } from "./format";
 import { GEAR } from "./glyphs";
 import { Glyph, Icon } from "./Icon";
+import { PickerButton, pickFromList } from "./PickerList";
 import { Settings } from "./settings-lazy";
 import {
+  drink,
   now,
   layerOf,
   openLayer,
   permission,
   refreshReminderInfo,
-  run,
   selectedTypeId,
   selectedVolumeId,
   setPick,
@@ -50,18 +51,6 @@ export default function Main() {
   const newestFirst = createMemo(() => [...s().todayLogs].sort((a, b) => b.atMs - a.atMs));
   const typeById = createMemo(() => new Map(s().types.map((t) => [t.id, t])));
   const volume = () => s().volumes.find((v) => v.id === selectedVolumeId());
-  const type = () => typeById().get(selectedTypeId() ?? -1);
-
-  const drink = async () => {
-    const v = volume();
-    const t = type();
-    if (!v || !t) return;
-    const next = await run(() => api.logDrink(v.id, t.id));
-    if (!next) return;
-    void api.haptic().catch(() => {});
-    const newest = next.todayLogs.reduce((a, b) => (b.id > a.id ? b : a));
-    showToast(`Logged ${v.ml} ml ${t.label}`, () => void run(() => api.deleteLog(newest.id)));
-  };
 
   const pickLog = (l: DrinkLog) => {
     const t = typeById().get(l.typeId);
@@ -200,36 +189,45 @@ export default function Main() {
       </ul>
 
       <div class="dock">
-        <ChipRow label="Drink type" selected={selectedTypeId()}>
-          <For each={s().types.filter((t) => !t.archived)}>
-            {(t) => (
-              <button
-                role="radio"
-                aria-checked={t.id === selectedTypeId()}
-                classList={{ on: t.id === selectedTypeId() }}
-                onClick={() => setPick((p) => ({ ...p, typeId: t.id }))}
-              >
-                <Icon name={t.icon} />
-                {t.label}
-              </button>
-            )}
-          </For>
-        </ChipRow>
-        <ChipRow label="Volume" selected={selectedVolumeId()}>
-          <For each={s().volumes}>
-            {(v) => (
-              <button
-                role="radio"
-                aria-checked={v.id === selectedVolumeId()}
-                classList={{ on: v.id === selectedVolumeId() }}
-                onClick={() => setPick((p) => ({ ...p, volumeId: v.id }))}
-              >
-                <Icon name={v.icon} />
-                {fmtMl(v.ml)} ml
-              </button>
-            )}
-          </For>
-        </ChipRow>
+        <Show
+          when={pickFromList()}
+          fallback={
+            <>
+              <ChipRow label="Drink type" selected={selectedTypeId()}>
+                <For each={s().types.filter((t) => !t.archived)}>
+                  {(t) => (
+                    <button
+                      role="radio"
+                      aria-checked={t.id === selectedTypeId()}
+                      classList={{ on: t.id === selectedTypeId() }}
+                      onClick={() => setPick((p) => ({ ...p, typeId: t.id }))}
+                    >
+                      <Icon name={t.icon} />
+                      {t.label}
+                    </button>
+                  )}
+                </For>
+              </ChipRow>
+              <ChipRow label="Volume" selected={selectedVolumeId()}>
+                <For each={s().volumes}>
+                  {(v) => (
+                    <button
+                      role="radio"
+                      aria-checked={v.id === selectedVolumeId()}
+                      classList={{ on: v.id === selectedVolumeId() }}
+                      onClick={() => setPick((p) => ({ ...p, volumeId: v.id }))}
+                    >
+                      <Icon name={v.icon} />
+                      {fmtMl(v.ml)} ml
+                    </button>
+                  )}
+                </For>
+              </ChipRow>
+            </>
+          }
+        >
+          <PickerButton />
+        </Show>
         <button class="drink" onClick={drink}>
           + DRINK {volume() ? `${fmtMl(volume()!.ml)} ml` : ""}
         </button>
