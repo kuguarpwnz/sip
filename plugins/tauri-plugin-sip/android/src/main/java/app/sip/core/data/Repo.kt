@@ -16,6 +16,7 @@ import app.sip.core.domain.SettingsPatch
 import app.sip.core.domain.Snapshot
 import app.sip.core.domain.TypeInput
 import app.sip.core.domain.waterMlOf
+import app.sip.core.domain.waterPctAfterEdit
 import app.sip.core.domain.Volume
 import app.sip.core.domain.VolumeInput
 import java.time.Instant
@@ -39,7 +40,7 @@ class Repo private constructor(context: Context) {
         @Volatile private var instance: Repo? = null
 
         private const val LOG_SELECT =
-            "SELECT l.id, l.at_ms, l.ml, l.type_id, t.water_pct FROM drink_log l JOIN drink_type t ON t.id = l.type_id"
+            "SELECT id, at_ms, ml, type_id, water_pct FROM drink_log"
 
         fun get(context: Context): Repo =
             instance ?: synchronized(this) {
@@ -94,10 +95,14 @@ class Repo private constructor(context: Context) {
 
     @Synchronized
     fun updateLog(input: LogInput): Snapshot = tx { db ->
-        findType(db, input.typeId) ?: throw Rejected("Drink type not found")
+        val type = findType(db, input.typeId) ?: throw Rejected("Drink type not found")
         val id = input.id ?: throw Rejected("Missing id")
+        val (oldTypeId, storedPct) = db.rawQuery("SELECT type_id, water_pct FROM drink_log WHERE id = ?", arrayOf(id.toString())).use {
+            if (it.moveToFirst()) it.getLong(0) to it.getInt(1) else throw Rejected("Log not found")
+        }
         val values = ContentValues().apply {
             put("at_ms", input.at.toEpochMilli()); put("ml", input.ml); put("type_id", input.typeId)
+            put("water_pct", waterPctAfterEdit(storedPct, oldTypeId, type))
         }
         if (db.update("drink_log", values, "id = ?", arrayOf(id.toString())) == 0) throw Rejected("Log not found")
         readSnapshot(db)
@@ -271,10 +276,10 @@ class Repo private constructor(context: Context) {
         val types = readTypes(db)
         val logs = ArrayList<DrinkLog>()
         db.rawQuery(
-            "$LOG_SELECT WHERE l.at_ms >= ? AND l.at_ms < ? ORDER BY l.at_ms DESC, l.id DESC",
+            "$LOG_SELECT WHERE at_ms >= ? AND at_ms < ? ORDER BY at_ms DESC, id DESC",
             arrayOf(dayStart.toEpochMilli().toString(), dayEnd.toEpochMilli().toString()),
         ).use { while (it.moveToNext()) logs.add(readLog(it)) }
-        val newest = db.rawQuery("$LOG_SELECT ORDER BY l.at_ms DESC, l.id DESC LIMIT 1", null).use {
+        val newest = db.rawQuery("$LOG_SELECT ORDER BY at_ms DESC, id DESC LIMIT 1", null).use {
             if (it.moveToFirst()) readLog(it) else null
         }
         val preset = Preset.derive(newest, types, volumes)
@@ -345,7 +350,7 @@ class Repo private constructor(context: Context) {
 
     private fun insertLog(db: SQLiteDatabase, at: Instant, ml: Int, type: DrinkType): DrinkLog {
         val values = ContentValues().apply {
-            put("at_ms", at.toEpochMilli()); put("ml", ml); put("type_id", type.id)
+            put("at_ms", at.toEpochMilli()); put("ml", ml); put("type_id", type.id); put("water_pct", type.waterPct)
         }
         return DrinkLog(db.insertOrThrow("drink_log", null, values), at, ml, type.id, waterMlOf(ml, type.waterPct))
     }

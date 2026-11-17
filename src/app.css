@@ -193,6 +193,7 @@ main > header .icon-btn { margin-right: -12px; }
   background: var(--bg);
   width: 100%;
 }
+.hint { margin-top: -8px; color: var(--muted); font-size: 13px; }
 .row2 { display: flex; gap: 12px; }
 .actions { display: flex; gap: 12px; }
 .actions .btn { flex: 1; }

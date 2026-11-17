@@ -35,7 +35,8 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 2) {
         )
         db.execSQL(
             "CREATE TABLE drink_log (id INTEGER PRIMARY KEY, at_ms INTEGER NOT NULL, " +
-                "ml INTEGER NOT NULL CHECK (ml > 0), type_id INTEGER NOT NULL REFERENCES drink_type(id))"
+                "ml INTEGER NOT NULL CHECK (ml > 0), type_id INTEGER NOT NULL REFERENCES drink_type(id), " +
+                "water_pct INTEGER NOT NULL DEFAULT 100 CHECK (water_pct BETWEEN 0 AND 100))"
         )
         db.execSQL("CREATE INDEX drink_log_at ON drink_log(at_ms)")
         db.execSQL("CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
@@ -46,6 +47,10 @@ class Db(context: Context) : SQLiteOpenHelper(context, "sip.db", null, 2) {
         if (oldVersion < 2) {
             db.execSQL(
                 "ALTER TABLE drink_type ADD COLUMN water_pct INTEGER NOT NULL DEFAULT 100 " +
+                    "CHECK (water_pct BETWEEN 0 AND 100)"
+            )
+            db.execSQL(
+                "ALTER TABLE drink_log ADD COLUMN water_pct INTEGER NOT NULL DEFAULT 100 " +
                     "CHECK (water_pct BETWEEN 0 AND 100)"
             )
             db.execSQL("DELETE FROM kv WHERE key IN ('last_volume_id', 'last_type_id')")

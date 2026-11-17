@@ -41,7 +41,7 @@ enum class AppIcon(val key: String) { DROPLET("droplet"), GLASS("glass"), /* gen
 
 data class DrinkType(val id: Long, val label: String, val icon: AppIcon, val position: Int, val archived: Boolean, val waterPct: Int)
 data class Volume(val id: Long, val ml: Int, val label: String, val icon: AppIcon, val position: Int)
-data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long, val waterMl: Int) // waterMl is computed on read
+data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long, val waterMl: Int) // waterMl is computed on read from the log's own water_pct
 
 data class ReminderSettings(
 	val enabled: Boolean,
@@ -84,14 +84,15 @@ CREATE TABLE drink_type (id INTEGER PRIMARY KEY, label TEXT NOT NULL, icon TEXT 
 CREATE TABLE volume (id INTEGER PRIMARY KEY, ml INTEGER NOT NULL CHECK (ml > 0),
 	label TEXT NOT NULL DEFAULT '', icon TEXT NOT NULL, position INTEGER NOT NULL);
 CREATE TABLE drink_log (id INTEGER PRIMARY KEY, at_ms INTEGER NOT NULL,
-	ml INTEGER NOT NULL CHECK (ml > 0), type_id INTEGER NOT NULL REFERENCES drink_type(id));
+	ml INTEGER NOT NULL CHECK (ml > 0), type_id INTEGER NOT NULL REFERENCES drink_type(id),
+	water_pct INTEGER NOT NULL DEFAULT 100 CHECK (water_pct BETWEEN 0 AND 100));
 CREATE INDEX drink_log_at ON drink_log(at_ms);
 CREATE TABLE kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 ```
 
 `kv` holds the settings and the reminder bookkeeping (`scheduled_for_ms`, `last_fired_ms`).
 
-Version 2 added `drink_type.water_pct` and dropped the `last_volume_id` and `last_type_id` kv rows. `onUpgrade` from version 1 adds the column, so every existing type keeps 100, and deletes the two rows.
+Version 2 added `drink_type.water_pct` and `drink_log.water_pct`, and dropped the `last_volume_id` and `last_type_id` kv rows. `onUpgrade` from version 1 adds both columns, so every existing type and log gets 100, and deletes the two rows.
 
 ### Rules the repository enforces
 
@@ -101,7 +102,7 @@ Version 2 added `drink_type.water_pct` and dropped the `last_volume_id` and `las
 - A log points at its drink type by id. Deleting a type archives it, so pickers hide it and old logs still show its icon.
 - At least one volume and one active drink type always exist. The repository refuses to delete the last one.
 - Nothing stores the last-used drink. The preset is derived on every read from the newest log, the one with the latest `at_ms` on any day, with the highest id winning a tie. `lastTypeId` is that log's type if it is active, else the first active type by position. `lastVolumeId` is the first volume by position whose `ml` equals that log's `ml`, else the first volume. With no logs, the preset is the first volume and the first active type. Editing, adding or deleting a log therefore moves it. `domain/Preset.kt` holds the rule.
-- Water content is read-time. A log's water is `round(ml * pct / 100)`, rounding halves up, using its type's current `water_pct`. Logs get no column for it, so changing a type's percentage recalculates every log of that type, past days included. The goal ring, the totals, the notification text and `pauseWhenGoalMet` all count water. The log keeps its own `ml` for the "Logged 250 ml" text, the history row, undo and the editor.
+- Water content is fixed when a drink is logged. Each log stores the `water_pct` its type had at that moment, and its water is `round(ml * water_pct / 100)`, rounding halves up, computed on read. Nothing stores water ml, so an ml edit scales correctly. `drink_type.water_pct` is only the default stamped onto new logs, so tuning a type changes no past day. `logDrink`, the notification button and `addLog` (Undo after a delete) stamp the type's current pct. `updateLog` keeps the stored pct when the type is unchanged, even if the amount or time changes, and takes the new type's current pct when the type changes. The goal ring, the totals, the notification text and `pauseWhenGoalMet` all count water. The log keeps its own `ml` for the "Logged 250 ml" text, the history row, undo and the editor.
 - A day runs from local midnight to local midnight.
 - Icons are stored as their string key. An unknown key parses to `DROPLET` when the row is read, so a bad row never crashes the UI.
 
@@ -173,7 +174,7 @@ Today                                   [settings]
 
 - **Daily goal** in ml, from 500 to 6000.
 - **Volumes**. Each row shows a drag handle, icon, "250 ml", and an optional label. A tap opens an editor for ml, label, and icon. You can drag rows to reorder them, delete a row, or tap **Add volume**.
-- **Drink types**. These use the same list editor, with label, icon and water content (0 to 100%, 100 for a new type). A row with less than 100% shows "88% water" as its second line.
+- **Drink types**. These use the same list editor, with label, icon and water content (0 to 100%, 100 for a new type). A row with less than 100% shows "88% water" as its second line. The editor notes that a new percentage applies to drinks logged from now on.
 - **Reminders**. On or off, the interval in minutes (15 to 240), quiet after a drink in minutes (0 to 240), the active hours start and end, and pause when the goal is met.
 - **Reliability**. The checklist and the test button from the reminders section.
 

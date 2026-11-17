@@ -43,9 +43,12 @@ export default function ItemSheet(p: { kind: "volume" | "type"; id: number | nul
         <input type="text" maxlength="24" value={label()} onInput={(e) => setLabel(e.currentTarget.value)} />
       </Field>
       {!isVolume && (
-        <Field label="Water content (%)">
-          <input type="number" inputmode="numeric" min="0" max="100" value={waterPct()} onInput={(e) => setWaterPct(e.currentTarget.value)} />
-        </Field>
+        <>
+          <Field label="Water content (%)">
+            <input type="number" inputmode="numeric" min="0" max="100" value={waterPct()} onInput={(e) => setWaterPct(e.currentTarget.value)} />
+          </Field>
+          <small class="hint">Applies to drinks you log from now on.</small>
+        </>
       )}
       <div class="icon-grid" role="radiogroup" aria-label="Icon">
         <For each={ICON_KEYS}>

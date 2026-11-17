@@ -26,6 +26,21 @@ class WaterTest {
     }
 
     @Test
+    fun anEditKeepsTheStoredPercentageWhenTheTypeStays() {
+        assertEquals(78, waterPctAfterEdit(78, 4, DrinkType(4, "Juice", AppIcon.DROPLET, 0, false, 50)))
+    }
+
+    @Test
+    fun anEditTakesTheNewTypesPercentageWhenTheTypeChanges() {
+        assertEquals(99, waterPctAfterEdit(78, 4, DrinkType(2, "Coffee", AppIcon.DROPLET, 0, false, 99)))
+    }
+
+    @Test
+    fun anEditedAmountScalesByTheStoredPercentage() {
+        assertEquals(156, waterMlOf(200, waterPctAfterEdit(78, 4, DrinkType(4, "Juice", AppIcon.DROPLET, 0, false, 100))))
+    }
+
+    @Test
     fun todayTotalSumsWater() {
         val reminders = ReminderSettings(true, 60, 60, LocalTime.of(8, 0), LocalTime.of(22, 0), true)
         val logs = listOf(

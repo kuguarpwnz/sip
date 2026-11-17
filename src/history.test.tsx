@@ -289,7 +289,11 @@ describe("water content", () => {
     expect(row(/Water\s*250 ml/).textContent).not.toMatch(/water$/);
   });
 
-  it("is edited in the drink type sheet, and recalculates the logs of that type", async () => {
+  const juice = (waterPct: number) => seed("save_type", { id: 4, label: "Juice", icon: "lemon-2", waterPct });
+  const LOGGED_AT = () => Date.now() - 20 * MIN;
+  const logJuice = (ml: number) => seed("add_log", { atMs: LOGGED_AT(), ml, typeId: 4 });
+
+  it("is edited in the drink type sheet, and leaves existing logs and the ring unchanged", async () => {
     await boot(addJuice500);
 
     await openSettings();
@@ -301,14 +305,49 @@ describe("water content", () => {
     const sheet = t.screen.getByRole("dialog", { name: "Edit drink type" });
     const pct = t.within(sheet).getByLabelText("Water content (%)") as HTMLInputElement;
     expect(pct.value).toBe("88");
+    expect(t.within(sheet).getByText("Applies to drinks you log from now on.")).toBeTruthy();
     t.fireEvent.input(pct, { target: { value: "50" } });
     t.fireEvent.click(t.within(sheet).getByRole("button", { name: "Save" }));
     await settle();
 
     expect(t.screen.getByText("50% water", { selector: ".s" })).toBeTruthy();
     await back();
-    expect(row(/Juice\s*500 ml/).textContent).toMatch(/250 ml water/);
-    expect(total()).toMatch(/^1\s479 \/ 2\s000 ml$/);
+    expect(row(/Juice\s*500 ml/).textContent).toMatch(/440 ml water/);
+    expect(total()).toMatch(/^1\s669 \/ 2\s000 ml$/);
+    expect(ringLabel()).toBe("83 percent of the daily goal");
+  });
+
+  it("gives a drink logged after the change the new percentage", async () => {
+    await boot(async () => {
+      await addJuice500();
+      await juice(50);
+      await seed("log_drink", { volumeId: 4, typeId: 4 });
+    });
+
+    const rows = t.screen.getAllByRole("button", { name: /Juice\s*500 ml/ });
+    expect(rows.map((r) => r.textContent?.match(/\d+ ml water/)?.[0])).toEqual(["250 ml water", "440 ml water"]);
+    expect(total()).toMatch(/^1\s919 \/ 2\s000 ml$/);
+  });
+
+  it("keeps a log's percentage when its amount is edited", async () => {
+    await boot(async () => {
+      await juice(78);
+      await logJuice(100);
+      await juice(50);
+      await seed("update_log", { id: 100, atMs: LOGGED_AT(), ml: 200, typeId: 4 });
+    });
+
+    expect(row(/Juice\s*200 ml/).textContent).toMatch(/156 ml water/);
+  });
+
+  it("gives a log the new type's percentage when its type is changed", async () => {
+    await boot(async () => {
+      await juice(78);
+      await logJuice(100);
+      await seed("update_log", { id: 100, atMs: LOGGED_AT(), ml: 100, typeId: 2 });
+    });
+
+    expect(row(/Coffee\s*100 ml/).textContent).toMatch(/99 ml water/);
   });
 
   it("starts a new drink type at 100%, and rejects a value above 100", async () => {

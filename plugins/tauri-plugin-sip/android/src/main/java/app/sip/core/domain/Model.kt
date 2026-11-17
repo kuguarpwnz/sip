@@ -14,10 +14,14 @@ data class DrinkType(val id: Long, val label: String, val icon: AppIcon, val pos
 
 data class Volume(val id: Long, val ml: Int, val label: String, val icon: AppIcon, val position: Int)
 
-/** `waterMl` is `ml` scaled by the drink type's current water content. It is computed on read and never stored. */
+/** `waterMl` is `ml` scaled by the log's own stored water percentage. It is computed on read and never stored. */
 data class DrinkLog(val id: Long, val at: Instant, val ml: Int, val typeId: Long, val waterMl: Int)
 
 fun waterMlOf(ml: Int, waterPct: Int): Int = (ml * waterPct + 50) / 100
+
+/** The percentage an edited log keeps: its own, unless the edit moves it to another type, which brings that type's current one. */
+fun waterPctAfterEdit(storedPct: Int, oldTypeId: Long, newType: DrinkType): Int =
+    if (newType.id == oldTypeId) storedPct else newType.waterPct
 
 data class ReminderSettings(
     val enabled: Boolean,

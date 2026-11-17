@@ -12,8 +12,8 @@ const midnight = () => {
   return d.getTime();
 };
 
-/** What the host stores. `waterMl` is computed from the type when a snapshot is read. */
-type DrinkLog = Omit<LoggedDrink, "waterMl">;
+/** What the host stores. Each log keeps the water percentage its type had when it was logged. `waterMl` is computed when a snapshot is read. */
+type DrinkLog = Omit<LoggedDrink, "waterMl"> & { waterPct: number };
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -48,11 +48,13 @@ const status: ReminderStatus = {
 let permission: PermissionState = "granted";
 
 const seedLogs = (t0: number): DrinkLog[] => [
-  { id: 1, atMs: t0 - 205 * MIN, ml: 330, typeId: 1 },
-  { id: 2, atMs: t0 - 160 * MIN, ml: 150, typeId: 2 },
-  { id: 3, atMs: t0 - 95 * MIN, ml: 500, typeId: 1 },
-  { id: 4, atMs: t0 - 25 * MIN, ml: 250, typeId: 1 },
+  { id: 1, atMs: t0 - 205 * MIN, ml: 330, typeId: 1, waterPct: 100 },
+  { id: 2, atMs: t0 - 160 * MIN, ml: 150, typeId: 2, waterPct: 99 },
+  { id: 3, atMs: t0 - 95 * MIN, ml: 500, typeId: 1, waterPct: 100 },
+  { id: 4, atMs: t0 - 25 * MIN, ml: 250, typeId: 1, waterPct: 100 },
 ];
+
+const pctOf = (typeId: number) => types.find((t) => t.id === typeId)?.waterPct ?? 100;
 const logs: DrinkLog[] = seedLogs(Date.now());
 let nextId = 100;
 
@@ -91,7 +93,7 @@ const snapshot = (): Snapshot => {
     settings: { ...settings, ...preset() },
     types: [...types].sort((a, b) => a.position - b.position),
     volumes: [...volumes].sort((a, b) => a.position - b.position),
-    todayLogs: today.map((l) => ({ ...l, waterMl: Math.round((l.ml * (types.find((t) => t.id === l.typeId)?.waterPct ?? 100)) / 100) })),
+    todayLogs: today.map(({ waterPct, ...l }) => ({ ...l, waterMl: Math.round((l.ml * waterPct) / 100) })),
     dayStartMs: midnight(),
     lastDrinkAtMs: newestLog()?.atMs ?? null,
   });
@@ -117,17 +119,17 @@ const commands: Record<string, (a: Args) => unknown> = {
   snapshot: () => snapshot(),
   log_drink: ({ volumeId, typeId }) => {
     const v = volumes.find((x) => x.id === volumeId) ?? fail("Unknown volume");
-    logs.push({ id: nextId++, atMs: Date.now(), ml: v.ml, typeId });
+    logs.push({ id: nextId++, atMs: Date.now(), ml: v.ml, typeId, waterPct: pctOf(typeId) });
     return snapshot();
   },
   add_log: ({ atMs, ml, typeId }) => {
-    logs.push({ id: nextId++, atMs, ml, typeId });
+    logs.push({ id: nextId++, atMs, ml, typeId, waterPct: pctOf(typeId) });
     return snapshot();
   },
   update_log: ({ id, atMs, ml, typeId }) => {
     const l = logs.find((x) => x.id === id) ?? fail("Unknown log");
     if (atMs > Date.now() + MIN) fail("A drink can't be in the future");
-    Object.assign(l, { atMs, ml: range(ml, 1, 5000, "Amount"), typeId });
+    Object.assign(l, { atMs, ml: range(ml, 1, 5000, "Amount"), typeId, waterPct: typeId === l.typeId ? l.waterPct : pctOf(typeId) });
     return snapshot();
   },
   delete_log: ({ id }) => {
@@ -231,7 +233,7 @@ Object.assign(window, {
   // Test hooks for the browser console: simulate what the phone does on its own.
   __sipFake: {
     emitChanged: () => {
-      logs.push({ id: nextId++, atMs: Date.now(), ml: 250, typeId: 1 });
+      logs.push({ id: nextId++, atMs: Date.now(), ml: 250, typeId: 1, waterPct: pctOf(1) });
       emitChanged();
     },
     missedReminder: (at = Date.now() - 20 * MIN) => (status.missedReminderAtMs = at),
