@@ -149,7 +149,7 @@ These facts come from the official Android docs, read on 2026-11-10.
 ### Main
 
 ```
-Today                                   [settings]
+Today                           [history] [settings]
                  ( 64% ring )
               1 280 / 2 000 ml
             last drink 25 min ago
@@ -161,11 +161,48 @@ Today                                   [settings]
  [            + DRINK  250 ml             ]
 ```
 
+- The chart icon (`aria-label="History"`) next to the gear opens History, and so does a tap on the ring or the total under it.
 - The picker button and **+ DRINK** sit at the bottom, in thumb reach. The button shows the selected type and volume, preselected from the last drink. It opens a "Choose drink" sheet with the drink types and the volumes side by side. Tapping one selects it, and **+ DRINK** in the sheet logs the drink and closes it.
 - A tap on **+ DRINK** logs the drink, gives a haptic tick, animates the ring, and shows "Logged 250 ml Water. Undo" for four seconds.
 - A history row whose water differs from its amount shows a muted second line under the ml, "220 ml water".
 - A tap on a log row selects that drink's type and volume, ready for **+ DRINK**, so a repeat drink takes two taps. It logs nothing. If the type is archived or no volume matches the amount, that selection stays as it was and a toast says so.
 - A long press on a log row (450 ms, with a haptic tick) opens the edit sheet for that drink, for its volume, type, and time, so a drink you forgot to log can get the right time. The sheet includes **Delete**, which removes the drink and shows "Deleted 400 ml Tea. Undo".
+
+### History
+
+A full-screen layer like Settings, `{ kind: "history" }` in the layer stack, so Android Back closes it. Its code is its own chunk, loaded like Settings: `src/history-lazy.ts` wraps it in `lazy()`, and a pointer down on the chart icon, the ring or the summary preloads it. Nothing of it is on the startup path.
+
+```
+<- History
+[ Week | Month | Year ]
+<  Nov 16 to 22  >                  > is disabled at the current period
+[2 476 ml a day] [1 of 1 goal met] [2 476 ml best, Mon]
+ bars, or a calendar, or 12 month bars
+WHEN YOU DRINK   24 thin columns, labels 00 06 12 18 23
+DRINK MIX        icon, label, thin bar, percent, largest first
+```
+
+- Weeks start on Monday. The label is "Nov 16 to 22", "November" (with the year when it is not this year) or "2026". Changing the view returns to the current period. The ‹ button never stops, because days before the first log are shown as no data.
+- **Tiles.** Week: the daily average, "{met} of {n}" goal met, and the best day with its weekday. Month: the same two, then the current streak ("3 days in a row"). Year: the daily average, goal met, and the best month's average labelled "best, {month}".
+- **Week.** Seven bars against a dashed goal line. A met day is a solid bar and a missed day a pale one. Today is an outlined bar. A day before the first log is a dashed placeholder and a day still to come is empty. A bar with data, and today, opens the day sheet.
+- **Month.** A calendar grid that starts on Monday. Met is solid, missed is pale, today is outlined, a day before the first log is dashed ("no data") and a future day is muted. A met, missed or today cell opens the day sheet.
+- **Year.** Twelve bars of each month's average water per completed day with data, solid at or above the goal and pale below it. A month with no such day shows the placeholder. The bars do nothing when tapped.
+- **Day sheet.** The Sheet component, titled "Thu, Nov 13", with "{water} ml, {pct}%" against the current goal, then that day's drinks newest first like the main screen, and "No drinks this day" when there are none. A tap on a drink opens the log editor for it. The sheet is the `{ kind: "historyDay", startMs }` layer, so Back closes it and leaves History open.
+- The editor layer is `{ kind: "logEditor", log }` and carries the log itself, so it works for a drink of any day. A time edit keeps the log's own date. Delete and Undo work from both places.
+
+How the numbers are made. `src/history-stats.ts` holds every rule as pure functions of the logs, the first log's time, the goal, the clock and the period, and `src/history-stats.test.ts` covers them.
+
+- History calls `logsBetween(0, end of today)` once and computes every view on the phone. It fetches again whenever the snapshot changes, so an edit in the day sheet shows at once. A year of heavy use is about 5 500 logs.
+- Days group by local date. A day runs from local midnight to local midnight.
+- Every past day is judged against the current goal, `settings.dailyGoalMl`. There is no goal history. A day is met when its water is at or above the goal.
+- All totals use `waterMl`, never `ml`.
+- The day of the first log ever and every day after it, up to yesterday, are completed days. A completed day with no logs is a missed day of 0 ml. A day before the first log is "no data" and counts nowhere. A day to come counts nowhere.
+- Today is in progress. It is drawn, but left out of the averages, the goal-met counts, the best day and the hour averages.
+- The streak is the run of consecutive met days ending yesterday, plus 1 if today has already reached the goal. It does not depend on the period on screen.
+- The best day is the completed day with the most water, the earliest on a tie. It is empty when no completed day has any water.
+- A year's tiles average over its completed days, not over its months. A month is solid when its water is at least the goal for each of its completed days, whatever the rounded average shows.
+- "When you drink" is the water of each hour of the day, summed over the completed days with data in the period and divided by their number. Zero-log days are in that number.
+- "Drink mix" is each type's share of the period's water, for the types that have water. Today's drinks are in it, since it is a share and not an average. Archived types keep their label and icon.
 
 ### Settings
 
@@ -192,6 +229,7 @@ package.json, index.html, vite.config.ts   Solid app build
 src/
   api.ts                 typed wrapper for every plugin command
   icons.gen.ts           generated by icons/generate.mjs
+  history-stats.ts       pure aggregation behind History
   (screens and components)
 src-tauri/               Rust app shell and the generated Android project
 plugins/tauri-plugin-sip/
@@ -210,13 +248,13 @@ scripts/emulator.sh      start or reuse the test emulator, print its serial
 scripts/release.sh       bump the version, build, tag, push, publish a GitHub release
 ```
 
-There are no Android dependencies beyond what Tauri brings, plus `org.json` and `android.database.sqlite` from the platform. The Settings screen is code-split with Solid's `lazy()`, so its code never loads on the startup path.
+There are no Android dependencies beyond what Tauri brings, plus `org.json` and `android.database.sqlite` from the platform. The Settings and History screens are code-split with Solid's `lazy()`, so their code never loads on the startup path.
 
 ## Testing
 
-- `pnpm test` runs the UI tests against the fake host on the Mac.
+- `pnpm test` runs the UI tests against the fake host on the Mac. `src/history-stats.test.ts` tests the History rules on their own, and `src/history.screen.test.tsx` drives the real app through History with twelve seeded days.
 - `export ANDROID_SERIAL=$(scripts/emulator.sh)` starts the emulator, or reuses the running one, and prints its serial. `scripts/emulator.sh --window` shows its window and `--stop` shuts it down.
-- Install the debug APK on it and run `node scripts/smoke-api.mjs`.
+- Install the debug APK on it and run `node scripts/smoke-api.mjs`. It covers every command, `logsBetween` included: the range bounds, the order, `firstAtMs` and a bad range.
 - The Kotlin unit tests run with `cd src-tauri/gen/android && ./gradlew :tauri-plugin-sip:testDebugUnitTest`.
 - Startup timing (`scripts/measure-startup.sh`) needs the real phone. Emulator numbers don't count against the 500 ms budget.
 - The release build's WebView is inspectable too (`MainActivity.kt`), so a script on a USB-debugging Mac can call the plugin commands on `app.sip` the way smoke-api does on `app.sip.debug`. It only answers while the phone is unlocked with Sip in front. Never point smoke-api at `app.sip`, because it wipes data.
@@ -242,6 +280,7 @@ interface Snapshot {
 	settings: Settings; types: DrinkType[]; volumes: Volume[];
 	todayLogs: DrinkLog[]; dayStartMs: number; lastDrinkAtMs: number | null;
 }
+interface LogRange { logs: DrinkLog[]; firstAtMs: number | null } // firstAtMs is the earliest log on any day, whatever the range
 interface ReminderStatus {
 	notificationsAllowed: boolean; channelEnabled: boolean; exactAlarmsAllowed: boolean;
 	batteryUnrestricted: boolean; nextReminderAtMs: number | null; missedReminderAtMs: number | null;
@@ -253,6 +292,7 @@ interface ReminderStatus {
 | Command | Arguments | Returns |
 | --- | --- | --- |
 | `snapshot` | none | `Snapshot` |
+| `logsBetween` | `fromMs`, `toMs` | `LogRange`. The logs with `fromMs <= atMs < toMs`, ordered by `atMs`, then `id`, with `waterMl`. Rejects `fromMs >= toMs`. |
 | `logDrink` | `volumeId`, `typeId` | `Snapshot`. Copies `ml` from the volume. |
 | `addLog` | `atMs`, `ml`, `typeId` | `Snapshot`. Undo for a deleted log. |
 | `updateLog` | `id`, `atMs`, `ml`, `typeId` | `Snapshot` |
@@ -282,7 +322,6 @@ The plugin also emits a `changed` event with a `Snapshot` after any write that d
 
 ## Later, not in v1
 
-- History and per-day stats.
 - A home screen widget and a Quick Settings tile, for logging without opening the app.
 - Backup and export.
 - A day that starts at 04:00 instead of midnight.
