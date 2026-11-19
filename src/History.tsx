@@ -2,15 +2,12 @@ import { createMemo, createResource, createSignal, For, Show, type JSX } from "s
 import "./screen.css";
 import "./history.css";
 import * as api from "./api";
-import { fmtMl, hhmm } from "./format";
+import { dayTitle, fmtMl, hhmm, MONTHS, WEEKDAYS } from "./format";
 import { BACK } from "./glyphs";
 import {
   dayEntries,
-  dayTitle,
   endOfDay,
   historyStats,
-  MONTHS,
-  WEEKDAYS,
   type DayCell,
   type HistoryStats,
   type MonthCell,

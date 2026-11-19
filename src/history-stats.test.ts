@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DrinkLog } from "./api";
-import { dayEntries, dayTitle, historyStats, type Period } from "./history-stats";
+import { dayEntries, historyStats, type Period } from "./history-stats";
 
 const GOAL = 2000;
 const WEEK: Period = { kind: "week", offset: 0 };
@@ -354,10 +354,5 @@ describe("a day's entries", () => {
 
     expect(day.logs.map((l) => l.id)).toEqual([c.id, b.id, a.id]);
     expect(day.waterMl).toBe(600);
-  });
-
-  it("titles a day with its weekday and date", () => {
-    expect(dayTitle(at(2026, 11, 13, 0))).toBe("Fri, Nov 13");
-    expect(dayTitle(at(2026, 11, 15, 0))).toBe("Sun, Nov 15");
   });
 });
