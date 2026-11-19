@@ -3,7 +3,7 @@ import "./screen.css";
 import "./history.css";
 import * as api from "./api";
 import { dayTitle, fmtMl, hhmm } from "./format";
-import { BACK } from "./glyphs";
+import { BACK, CHEVRON_LEFT, CHEVRON_RIGHT } from "./glyphs";
 import {
   dayEntries,
   endOfDay,
@@ -19,8 +19,6 @@ import { Glyph, Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { closeLayer, layerOf, now, openLayer, showToast, snap } from "./store";
 
-const PREVIOUS = '<path d="M15 6l-6 6l6 6"/>';
-const NEXT = '<path d="M9 6l6 6l-6 6"/>';
 
 const KINDS: { kind: PeriodKind; label: string }[] = [
   { kind: "week", label: "Week" },
@@ -284,13 +282,13 @@ export default function History() {
           </div>
           <div class="nav">
             <button class="icon-btn" aria-label={`Previous ${kind()}`} onClick={() => setOffset((o) => o - 1)}>
-              <Glyph path={PREVIOUS} />
+              <Glyph path={CHEVRON_LEFT} />
             </button>
             <span class="period" aria-live="polite">
               {stats()?.label}
             </span>
             <button class="icon-btn" aria-label={`Next ${kind()}`} disabled={offset() === 0} onClick={() => setOffset((o) => o + 1)}>
-              <Glyph path={NEXT} />
+              <Glyph path={CHEVRON_RIGHT} />
             </button>
           </div>
         </div>

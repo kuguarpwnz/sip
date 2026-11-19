@@ -1,10 +1,9 @@
 import { For, Show } from "solid-js";
 import { fmtMl } from "./format";
+import { CHEVRON_RIGHT } from "./glyphs";
 import { Glyph, Icon } from "./Icon";
 import { Sheet } from "./Sheet";
 import { closeAllLayers, drink, openLayer, selectedTypeId, selectedVolumeId, setPick, snap } from "./store";
-
-const CHEVRON = '<path d="M9 6l6 6l-6 6"/>';
 
 export const PickerButton = () => {
   const type = () => snap()!.types.find((t) => t.id === selectedTypeId());
@@ -32,7 +31,7 @@ export const PickerButton = () => {
           </span>
         )}
       </Show>
-      <Glyph path={CHEVRON} />
+      <Glyph path={CHEVRON_RIGHT} />
     </button>
   );
 };
