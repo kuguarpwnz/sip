@@ -1,5 +1,4 @@
 import type { DrinkLog } from "./api";
-import { MONTHS, shortMonth, weekdayOf } from "./format";
 
 export type PeriodKind = "week" | "month" | "year";
 /** `offset` 0 is the period that holds today, -1 the one before it. */
@@ -59,6 +58,9 @@ export interface HistoryStats {
   mix: MixRow[];
 }
 
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const short = (month: number) => MONTHS[month].slice(0, 3);
 
 /** Local midnight of the day that holds `ms`. Built from the date fields, so a 23 or 25 hour day is still one day. */
 export const startOfDay = (ms: number) => {
@@ -73,6 +75,8 @@ const addDays = (dayStart: number, n: number) => {
 
 /** Local midnight that ends the day holding `ms`. */
 export const endOfDay = (ms: number) => addDays(startOfDay(ms), 1);
+
+const weekdayOf = (ms: number) => (new Date(ms).getDay() + 6) % 7;
 
 const rangeOf = ({ kind, offset }: Period, now: number) => {
   const d = new Date(now);
@@ -101,8 +105,8 @@ const labelOf = (kind: PeriodKind, startMs: number, endMs: number, now: number) 
   }
   const last = new Date(addDays(endMs, -1));
   return first.getMonth() === last.getMonth()
-    ? `${shortMonth(first.getMonth())} ${first.getDate()} to ${last.getDate()}`
-    : `${shortMonth(first.getMonth())} ${first.getDate()} to ${shortMonth(last.getMonth())} ${last.getDate()}`;
+    ? `${short(first.getMonth())} ${first.getDate()} to ${last.getDate()}`
+    : `${short(first.getMonth())} ${first.getDate()} to ${short(last.getMonth())} ${last.getDate()}`;
 };
 
 const groupByDay = (logs: DrinkLog[]) => {

@@ -26,14 +26,5 @@ export const whenLabel = (ms: number, now: number) => {
   return `${d.getDate()}.${d.getMonth() + 1}. ${hhmm(ms)}`;
 };
 
-export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-export const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-export const shortMonth = (month: number) => MONTHS[month].slice(0, 3);
-
-/** 0 is Monday. */
-export const weekdayOf = (ms: number) => (new Date(ms).getDay() + 6) % 7;
-
-export const dayTitle = (startMs: number) => {
-  const d = new Date(startMs);
-  return `${WEEKDAYS[weekdayOf(startMs)]}, ${shortMonth(d.getMonth())} ${d.getDate()}`;
-};
+export const dayTitle = (startMs: number) =>
+  new Date(startMs).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
