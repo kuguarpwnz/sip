@@ -1,13 +1,16 @@
-import { createMemo, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import * as api from "./api";
 import type { DrinkLog } from "./api";
 import { ago, fmtMl, hhmm } from "./format";
-import { CHART_BAR, GEAR } from "./glyphs";
+import { type Day, dayLabel, earlierDays } from "./days";
+import { CHART_BAR, CHEVRON_LEFT, CHEVRON_RIGHT, GEAR } from "./glyphs";
 import { Glyph, Icon } from "./Icon";
 import { PickerButton } from "./DrinkPicker";
 import { History } from "./history-lazy";
 import { Settings } from "./settings-lazy";
 import {
+  closeAllLayers,
+  closeLayer,
   drink,
   now,
   layerOf,
@@ -29,6 +32,16 @@ const openHistory = () => {
   if (!layerOf("history")) openLayer({ kind: "history" });
 };
 
+/** Every log before today, grouped into days. Nothing fetches until the first tap on Earlier. */
+const fetchEarlier = async () => {
+  const todayStart = snap()!.dayStartMs;
+  try {
+    return earlierDays((await api.logsBetween(0, todayStart)).logs, todayStart);
+  } catch (e) {
+    showToast(String(e instanceof Error ? e.message : e));
+  }
+};
+
 const LONG_PRESS_MS = 450;
 const MOVE_SLOP_PX = 10;
 
@@ -38,6 +51,52 @@ export default function Main() {
   const newestFirst = createMemo(() => [...s().todayLogs].sort((a, b) => b.atMs - a.atMs));
   const typeById = createMemo(() => new Map(s().types.map((t) => [t.id, t])));
   const volume = () => s().volumes.find((v) => v.id === selectedVolumeId());
+
+  const [days, setDays] = createSignal<Day[]>([]);
+  const [shown, setShown] = createSignal(0);
+  const past = () => layerOf("pastDay");
+  const shownIndex = () => days().findIndex((d) => d.startMs === shown());
+  const rows = () => (past() ? (days()[shownIndex()]?.logs ?? []) : newestFirst());
+  const older = () => days()[shownIndex() + 1];
+
+  let loading = false;
+  const openEarlier = async () => {
+    if (loading) return;
+    loading = true;
+    const fetched = await fetchEarlier();
+    loading = false;
+    if (!fetched) return;
+    if (!fetched.length) return showToast("No earlier drinks yet");
+    setDays(fetched);
+    setShown(fetched[0].startMs);
+    openLayer({ kind: "pastDay" });
+  };
+
+  const goTo = (i: number) => (days()[i] ? setShown(days()[i].startMs) : closeLayer());
+
+  // Edits and deletes change the snapshot, so the open view fetches again. If its day emptied out, it moves to the nearest day left.
+  let fetchId = 0;
+  createEffect(
+    on(
+      snap,
+      async () => {
+        if (!past()) return;
+        const id = ++fetchId;
+        const fetched = await fetchEarlier();
+        if (!fetched || id !== fetchId || !past()) return;
+        setDays(fetched);
+        const gap = (d: Day) => Math.abs(d.startMs - shown());
+        const near = fetched.reduce<Day | undefined>((best, d) => (!best || gap(d) < gap(best) ? d : best), undefined);
+        if (!near) closeAllLayers();
+        else if (gap(near)) setShown(near.startMs);
+      },
+      { defer: true },
+    ),
+  );
+
+  const logDrink = async () => {
+    if ((await drink()) && past()) closeAllLayers();
+  };
 
   const pickLog = (l: DrinkLog) => {
     const t = typeById().get(l.typeId);
@@ -154,8 +213,33 @@ export default function Main() {
         )}
       </Show>
 
-      <ul class="logs">
-        <For each={newestFirst()} fallback={<li class="empty">No drinks yet today</li>}>
+      <Show
+        when={past()}
+        fallback={
+          <div class="daybar">
+            <button class="earlier" onClick={() => void openEarlier()}>
+              <Glyph path={CHEVRON_LEFT} />
+              Earlier
+            </button>
+          </div>
+        }
+      >
+        <div class="daybar on" role="group" aria-label="Earlier day">
+          <button class="icon-btn" aria-label="Older day" disabled={!older()} onClick={() => goTo(shownIndex() + 1)}>
+            <Glyph path={CHEVRON_LEFT} />
+          </button>
+          <strong>{dayLabel(shown(), s().dayStartMs)}</strong>
+          <button class="icon-btn" aria-label="Newer day" onClick={() => goTo(shownIndex() - 1)}>
+            <Glyph path={CHEVRON_RIGHT} />
+          </button>
+          <button class="earlier today" onClick={closeLayer}>
+            Today
+          </button>
+        </div>
+      </Show>
+
+      <ul class="logs" classList={{ past: !!past() }}>
+        <For each={rows()} fallback={<Show when={!past()}><li class="empty">No drinks yet today</li></Show>}>
           {(l) => (
             <li>
               <button
@@ -187,7 +271,7 @@ export default function Main() {
 
       <div class="dock">
         <PickerButton />
-        <button class="drink" onClick={drink}>
+        <button class="drink" onClick={logDrink}>
           + DRINK {volume() ? `${fmtMl(volume()!.ml)} ml` : ""}
         </button>
       </div>

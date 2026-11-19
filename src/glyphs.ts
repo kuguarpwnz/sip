@@ -6,3 +6,5 @@ export const PENCIL = '<path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5
 export const TRASH = '<path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>';
 export const PLUS = '<path d="M12 5l0 14"/><path d="M5 12l14 0"/>';
 export const CHECK = '<path d="M5 12l5 5l10 -10"/>';
+export const CHEVRON_LEFT = '<path d="M15 6l-6 6l6 6"/>';
+export const CHEVRON_RIGHT = '<path d="M9 6l6 6l-6 6"/>';
