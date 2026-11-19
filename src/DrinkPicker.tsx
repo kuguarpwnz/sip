@@ -2,7 +2,7 @@ import { For, Show } from "solid-js";
 import { fmtMl } from "./format";
 import { Glyph, Icon } from "./Icon";
 import { Sheet } from "./Sheet";
-import { closeLayer, drink, openLayer, selectedTypeId, selectedVolumeId, setPick, snap } from "./store";
+import { closeAllLayers, drink, openLayer, selectedTypeId, selectedVolumeId, setPick, snap } from "./store";
 
 const CHEVRON = '<path d="M9 6l6 6l-6 6"/>';
 
@@ -76,7 +76,7 @@ export const PickerSheet = () => {
       <button
         class="drink"
         onClick={async () => {
-          if (await drink()) closeLayer();
+          if (await drink()) closeAllLayers();
         }}
       >
         + DRINK {volume() ? `${fmtMl(volume()!.ml)} ml` : ""}

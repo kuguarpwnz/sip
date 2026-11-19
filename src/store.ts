@@ -8,7 +8,8 @@ export type Layer =
   | { kind: "logEditor"; log: api.DrinkLog }
   | { kind: "volumeEditor"; id: number | null }
   | { kind: "typeEditor"; id: number | null }
-  | { kind: "picker" };
+  | { kind: "picker" }
+  | { kind: "pastDay" };
 
 export interface Toast {
   text: string;
@@ -108,6 +109,12 @@ export const openLayer = (layer: Layer) => {
 };
 
 export const closeLayer = () => history.back();
+
+/** One history jump to depth 0, so a single popstate drops every layer. */
+export const closeAllLayers = () => {
+  const n = layers().length;
+  if (n) history.go(-n);
+};
 
 export const drink = async () => {
   const s = snap();
