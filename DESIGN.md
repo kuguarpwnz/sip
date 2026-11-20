@@ -266,6 +266,13 @@ There are no Android dependencies beyond what Tauri brings, plus `org.json` and 
 - Startup timing (`scripts/measure-startup.sh`) needs the real phone. Emulator numbers don't count against the 500 ms budget.
 - The release build's WebView is inspectable too (`MainActivity.kt`), so a script on a USB-debugging Mac can call the plugin commands on `app.sip` the way smoke-api does on `app.sip.debug`. It only answers while the phone is unlocked with Sip in front. Never point smoke-api at `app.sip`, because it wipes data.
 
+## Releases
+
+- `scripts/release.sh patch` (or `minor`, `major`, `X.Y.Z`) bumps the version, builds and signs `sip.apk`, pushes the commit and tag, and publishes a GitHub release with `sip-X.Y.Z.apk` attached.
+- Phones update through Obtainium pointed at `https://github.com/kuguarpwnz/sip`. It reads the latest release without a token, which is why the repo is public.
+- gh logs in with a fine-grained token limited to this repo, with Contents set to read and write. Without write access the script pushes the tag, stops at the release step, and prints the command that finishes it.
+- Every release is signed with `signing/sip-release.keystore`, which is not in git. A phone refuses an update signed with any other key, so keep a backup of `signing/`.
+
 ## Plugin API
 
 The plugin is named `sip`. `src/api.ts` is the only file that calls `invoke`. Every command that changes data returns the new `Snapshot`, and the UI replaces its whole state with it. A rejected command carries a message the UI shows as a toast.
